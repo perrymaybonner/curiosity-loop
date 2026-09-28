@@ -325,7 +325,8 @@ def _cfg():
     return {'awareness_gain': p.Awarenessgain.eval(), 'orbit_gain': p.Orbitgain.eval(),
             'dwell_time': p.Dwelltime.eval(), 'hover_dwell_time': p.Hoverdwelltime.eval(),
             'still_time': p.Stilltime.eval(), 'still_threshold': p.Stillthreshold.eval(),
-            'one_hand_time': p.Onehandtime.eval()}
+            'one_hand_time': p.Onehandtime.eval(),
+            'show_cursors': bool(getattr(p, 'Handdots', None) and p.Handdots.eval())}
 
 
 def _ops():

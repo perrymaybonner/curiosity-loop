@@ -36,3 +36,12 @@ Format per entry: what I tried · what broke · what I asked Claude · what fina
 - **Confirmed:** MediaPipe outputs `h1:wrist:x`-style channels in 0..1 with y up. The parser recognised 42 hand and 33 pose landmarks. The landmarks match the unmirrored video frame, so flipping both keeps the dots on your real hands.
 - **What worked:** Standing in front of the camera triggered Awareness, raising hands revealed the grid, and pointing charged a photo.
 - **Snapshot:** saved the working first run as `curiosity_loop_firstrun.toe` (a local file; .toe files aren't committed).
+
+## 2026-09-28 - Edits after the first run
+- **Asked for:** a spiral that moves in and out of a circle, more images, and no white dot guiding the finger.
+- **Changed:**
+  - The spiral now "breathes": every 14 s (`breathe_period`) it eases from a 1.75-turn spiral with an open center into one evenly spaced ring and back, rotating the whole time. Your position still leans it, and your distance still grows or shrinks it. I compared shapes in offline previews first; more turns just read as dotted rings.
+  - Went from 16 to 36 placeholder photos (the build cap is now 48). Photos shrink as the count grows.
+  - The grid fits itself to the photo count (8x5 for 36). The minimum spacing was raised because close hands made the photos overlap.
+  - The white hand dots are off by default (**Hand Dots** toggle on the Input page). The photo you point at lifts slightly right away, so you still know what you're aiming at.
+- **Tests:** added tests for the spiral/circle shape, the grid fitting 12-48 photos, and the dot toggle. All 8 pass.

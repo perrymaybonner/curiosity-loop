@@ -88,6 +88,7 @@ def _build():
     f(inp, 'Farsw', 'Shoulder Width: Far', 0.12, 0.0, 0.5)
     f(inp, 'Ghost', 'Ghost Mirror Opacity', 0.10, 0.0, 1.0)
     t(inp, 'Debug', 'Debug Overlay', False)
+    t(inp, 'Handdots', 'Hand Dots (Reveal)', False)
 
     tune = base.appendCustomPage('Tuning')
     f(tune, 'Awarenessgain', 'Awareness Gain (subtle)', 0.3, 0, 1)
@@ -139,7 +140,7 @@ def _build():
     # ---------------------------------------------------------- photos
     exts = ('.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp', '.webp', '.exr')
     files = sorted(fn for fn in os.listdir(photo_dir) if fn.lower().endswith(exts)) if os.path.isdir(photo_dir) else []
-    files = files[:24]
+    files = files[:48]
     if not files:
         print('!! No images in %s - run tools/make_placeholders.py or add photos.' % photo_dir)
 

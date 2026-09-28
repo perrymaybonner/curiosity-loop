@@ -28,6 +28,9 @@ DEFAULTS = {
     'awareness_gain': 0.3,      # how strongly the spiral follows you on first contact
     'orbit_gain': 1.0,          # ...and after you've "been remembered"
     'spin': 0.08,               # base spiral rotation, rad/s
+    'breathe_period': 14.0,     # s for the spiral to open into a circle and back
+    'spiral_turns': 1.75,        # how many times the spiral winds around
+    'show_cursors': False,      # soft dots under the hands during Reveal
     'person_lost_time': 3.0,    # s without a person before going idle
     'forget_visitor_time': 8.0, # s idle before the mirror forgets you were here
     # --- reveal ---
@@ -217,17 +220,31 @@ class CuriosityLoop:
         w = BASE_H * self.aspects[i]
         return max(WORLD_W / w, WORLD_H / BASE_H) * 1.12
 
+    def _breath(self):
+        """0 = tight spiral, 1 = open circle; eases back and forth forever."""
+        period = max(self.cfg['breathe_period'], 1.0)
+        return 0.5 - 0.5 * math.cos(self.t * 2.0 * math.pi / period)
+
     def _spiral_slot(self, i):
         f = (i + 0.5) / self.n
-        ang = i * 2.39996 + self.spiral_angle * (0.6 + 0.8 * (1.0 - f))
-        r = (0.9 + 6.0 * math.sqrt(f)) * self.s_expand * (1.0 + self.enter_kick)
-        x = r * math.cos(ang) * 1.1
-        y = r * math.sin(ang) * 0.6
+        m = self._breath()
+        big = (0.9 + 0.1 * (1.0 - m)) * self.s_expand * (1.0 + self.enter_kick)
+        # spiral: radius grows with f, winding several turns
+        r_s = (1.0 + 3.1 * f) * big      # open center, no pile-up
+        a_s = f * self.cfg['spiral_turns'] * 2.0 * math.pi
+        # circle: everyone on one ring, evenly spaced
+        r_c = 3.7 * big
+        a_c = f * 2.0 * math.pi
+        r = lerp(r_s, r_c, m)
+        ang = lerp(a_s, a_c, m) + self.spiral_angle
+        x = r * math.cos(ang) * 1.15
+        y = r * math.sin(ang)
         # lean: shear the spiral sideways, more at the top
         x += self.s_cx + self.s_lean * (y + WORLD_H * 0.5) * 0.6
         rot = math.degrees(self.s_lean) * 0.6 + self.jitter[i] * 6.0
-        scale = (0.5 + 0.35 * (1.0 - f)) * self.s_size
-        z = 1.0 - f
+        size_n = math.sqrt(16.0 / self.n)           # more photos -> smaller photos
+        scale = lerp(0.3 + 0.3 * (1.0 - f), 0.42, m) * size_n * self.s_size
+        z = lerp(1.0 - f, 0.5, m) + 0.001 * i
         return x, y, z, rot, scale
 
     def _grid_dims(self):
@@ -235,16 +252,22 @@ class CuriosityLoop:
         rows = int(math.ceil(self.n / float(cols)))
         return cols, rows
 
+    def _grid_fit(self):
+        """cell width that keeps every photo on screen, however many there are"""
+        cols, rows = self._grid_dims()
+        return min(2.25, 13.0 / cols, 6.8 / (rows * 0.78))
+
     def _grid_slot(self, i):
         cols, rows = self._grid_dims()
         c, r = i % cols, i // cols
-        cw, ch = 2.25 * self.g_spacing, 1.75 * self.g_spacing
+        fit = self._grid_fit()
+        cw, ch = fit * self.g_spacing, fit * 0.78 * self.g_spacing
         gx = (c - (cols - 1) / 2.0) * cw
         gy = ((rows - 1) / 2.0 - r) * ch
         ca, sa = math.cos(self.g_angle), math.sin(self.g_angle)
         x = gx * ca - gy * sa + self.g_ox
         y = gx * sa + gy * ca + self.g_oy
-        return x, y, 0.5, math.degrees(self.g_angle), 0.72
+        return x, y, 0.5, math.degrees(self.g_angle), 0.72 * fit / 2.25
 
     # ----------------------------------------------------------------- update
     def update(self, inp, dt):
@@ -335,7 +358,8 @@ class CuriosityLoop:
             if len(hands) >= 2:
                 a, b = sorted(hands[:2], key=lambda h: h.x)
                 d = math.hypot(b.x - a.x, b.y - a.y)
-                spacing = lerp(0.7, 1.45, clamp((d - 0.4) / 1.0, 0.0, 1.0))
+                # never below ~1: photos are 77% of a cell, so smaller spacing overlaps them
+                spacing = lerp(0.95, 1.25, clamp((d - 0.4) / 1.0, 0.0, 1.0))
                 angle = clamp(math.atan2(b.y - a.y, b.x - a.x), -0.6, 0.6) * 0.8
                 mx, my = (a.x + b.x) * 0.5, (a.y + b.y) * 0.5
             else:
@@ -356,7 +380,7 @@ class CuriosityLoop:
                 d = math.hypot(sp['x'].x - cx, sp['y'].x - cy)
                 if d < best_d:
                     best, best_d = i, d
-            if best_d < 1.3 * self.g_spacing:
+            if best_d < 0.6 * self._grid_fit() * self.g_spacing:
                 target = best
 
         if target >= 0 and target == self.hovered:
@@ -411,7 +435,7 @@ class CuriosityLoop:
                 x, y, z, rot, sc = self._grid_slot(i)
                 alpha, bright = 1.0, 0.85
                 if i == self.hovered:
-                    sc *= 1.0 + 0.3 * self.charge
+                    sc *= 1.1 + 0.3 * self.charge
                     z += 1.0
                     bright = 0.85 + 0.15 * self.charge
                 elif self.hovered >= 0:
@@ -464,6 +488,8 @@ class CuriosityLoop:
             aiming = h is not None and (h.pointing or len(hands) == 1)
             size = 0.12 + (0.25 * (1.0 - self.charge) if aiming else 0.1)
             alpha = (0.85 if (h is not None and h.pointing) else 0.35) if vis else 0.0
+            if not self.cfg['show_cursors']:
+                alpha = 0.0
             co = CursorOut()
             co.x = cs['x'].step(tx, dt, *FOLLOW)
             co.y = cs['y'].step(ty, dt, *FOLLOW)

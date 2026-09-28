@@ -60,7 +60,7 @@ def test_full_loop():
 
     fr = run(loop, 1, two_hands)
     assert fr.state == L.REVEAL, fr.state
-    assert all(c.alpha > 0.1 for c in fr.cursors), 'hand cursors should show'
+    assert all(c.alpha == 0.0 for c in fr.cursors), 'hand dots are off by default'
 
     fr = run(loop, 2.0, pointing_at(loop, 5))
     assert fr.state in (L.FOCUS, L.DISTORT), fr.info
@@ -94,6 +94,36 @@ def test_orbit_responds_more_than_awareness():
         return (cx1 - cx0) / loop.n
     a, o = lean_amount(False), lean_amount(True)
     assert o > a * 2.5 > 0, (a, o)
+
+
+def test_cursor_toggle():
+    loop = L.CuriosityLoop(16, {'show_cursors': True})
+    run(loop, 1, standing)
+    fr = run(loop, 1, two_hands)
+    assert all(c.alpha > 0.1 for c in fr.cursors), 'dots show when enabled'
+
+
+def test_spiral_breathes_into_circle():
+    loop = L.CuriosityLoop(36)
+    radii = lambda: [math.hypot(p.x / 1.15, p.y) for p in loop._compose([], DT).photos]
+    loop.t = 0.0                                  # tight spiral
+    loop.springs = [dict((k, L._Spring(v)) for k, v in zip(('x', 'y', 'z', 'rot', 'scale', 'alpha', 'bright'),
+                    list(loop._spiral_slot(i)) + [1, 1])) for i in range(loop.n)]
+    spread_spiral = max(radii()) - min(radii())
+    loop.t = loop.cfg['breathe_period'] / 2.0     # fully open
+    loop.springs = [dict((k, L._Spring(v)) for k, v in zip(('x', 'y', 'z', 'rot', 'scale', 'alpha', 'bright'),
+                    list(loop._spiral_slot(i)) + [1, 1])) for i in range(loop.n)]
+    spread_circle = max(radii()) - min(radii())
+    assert spread_spiral > 2.5 and spread_circle < 0.3, (spread_spiral, spread_circle)
+
+
+def test_grid_fits_screen():
+    for n in (12, 16, 36, 48):
+        loop = L.CuriosityLoop(n)
+        xs = [loop._grid_slot(i)[0] for i in range(n)]
+        ys = [loop._grid_slot(i)[1] for i in range(n)]
+        assert max(map(abs, xs)) < L.WORLD_W / 2 - 0.8, (n, max(xs))
+        assert max(map(abs, ys)) < L.WORLD_H / 2 - 0.5, (n, max(ys))
 
 
 def test_hands_leave_grid_dissolves():

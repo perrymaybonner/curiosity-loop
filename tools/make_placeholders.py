@@ -1,5 +1,5 @@
 """
-Writes 16 abstract placeholder "photos" into ../photos (pure Python, no deps).
+Writes 36 abstract placeholder "photos" into ../photos (pure Python, no deps).
 Delete them (placeholder_*.png) once you add your own images, then re-run build.
 
     python3 tools/make_placeholders.py
@@ -10,7 +10,7 @@ import random
 import struct
 import zlib
 
-W, H, N = 640, 480, 16
+W, H, N = 640, 480, 36
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'photos')
 
 
