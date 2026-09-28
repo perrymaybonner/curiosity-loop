@@ -61,3 +61,7 @@ Format per entry: what I tried · what broke · what I asked Claude · what fina
 - **Asked for:** a selected photo was too zoomed in and had a weird filter. Don't zoom; keep the photo clearly visible with some background showing.
 - **Changed:** the selected photo now fits inside 80% of the screen with nothing cropped (`focus_fill`, a contain fit instead of cover). Hand-distance zoom is off (`zoom_max` 1.0), and the velocity warp and wobble are off (`warp_amount` 0). Instead the photo drifts gently with the hand (`focus_drift`). The rest of the collection stays visible behind it at 30% (`focus_others_alpha`), and the camera ghost shows through too.
 - **Checked:** selected a photo live with the simulator. The whole photo is visible and clean, with the grid and ghost around it. The tests now assert a fit of about 80%, a visible background, and no warp.
+
+## 2026-09-28 - No lag
+- **Asked for:** remove the lag effect when images move.
+- **Changed:** turned off the motion trails (feedback smear) in Orbit (`orbit_trail` 0; the feedback chain is still in the network if I ever want it back). Photos that were hidden in the spiral cycle now fade in quickly when the grid reveals instead of lagging behind. Orbit now differs from Awareness only by reacting more strongly.

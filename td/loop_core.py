@@ -62,7 +62,7 @@ DEFAULTS = {
     # --- forget ---
     'forget_time': 3.5,
     # --- look ---
-    'orbit_trail': 0.82,        # feedback amount in orbit (visual "memory")
+    'orbit_trail': 0.0,         # motion trails in orbit (0 = off; ~0.8 = long smears)
 }
 
 
@@ -529,7 +529,8 @@ class CuriosityLoop:
             o.z = sp['z'].step(z, dt, k * 2, c * 1.4)
             o.rot = sp['rot'].step(rot, dt, k, c)
             o.scale = max(0.01, sp['scale'].step(sc, dt, k, c))
-            a_prof = DRIFT if s == FORGET else SLOW
+            # quick fade-in on reveal so the grid arrives at once; slow elsewhere
+            a_prof = DRIFT if s == FORGET else (FOLLOW if s == REVEAL else SLOW)
             o.alpha = clamp(sp['alpha'].step(alpha, dt, *a_prof), 0.0, 1.0)
             o.bright = clamp(sp['bright'].step(bright, dt, *SLOW), 0.0, 1.5)
             fr.photos.append(o)

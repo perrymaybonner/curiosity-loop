@@ -84,7 +84,7 @@ def test_full_loop():
 
     fr = run(loop, 4.0, lambda t: standing(t, 0.0))
     assert fr.state == L.ORBIT, fr.state
-    assert fr.trail > 0.3, 'orbit should show memory trails'
+    assert fr.trail == 0.0, 'no motion trails by default'
 
 
 def test_orbit_responds_more_than_awareness():
