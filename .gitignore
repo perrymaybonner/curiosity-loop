@@ -7,3 +7,8 @@ toxes/
 release/
 __pycache__/
 .DS_Store
+
+# your own photos stay local until you decide to publish them
+photos_originals/
+photos/*
+!photos/.gitkeep

@@ -140,7 +140,7 @@ def _build():
     # ---------------------------------------------------------- photos
     exts = ('.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp', '.webp', '.exr')
     files = sorted(fn for fn in os.listdir(photo_dir) if fn.lower().endswith(exts)) if os.path.isdir(photo_dir) else []
-    files = files[:48]
+    files = files[:60]
     if not files:
         print('!! No images in %s - run tools/make_placeholders.py or add photos.' % photo_dir)
 

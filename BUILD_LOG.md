@@ -50,3 +50,9 @@ Format per entry: what I tried · what broke · what I asked Claude · what fina
 - **Asked for:** the spiral should start with few images, spiral out with more until it's a big spiral, then turn into a rotating circle.
 - **Changed:** the idle orbit is now a repeating cycle of about 34 s: build out (12 s, photos slide out from the center one by one along the arm), hold the full spiral (3 s), unwind into a ring (3 s), rotate the ring (8 s, 2.5x faster), wind back (2.5 s), and gather in, outermost first (5 s). Hidden photos are both shrunk and transparent. Entering Forget jumps the cycle to the full spiral so the collection comes back complete. All timings are in `DEFAULTS` in `loop_core.py`.
 - **Checked:** rendered six frames of the cycle offline from the same code (few, half, full, opening, ring, gathering). Replaced the breathing tests with build-out/ring/gather tests and a Forget test. All 9 pass.
+
+## 2026-09-28 - My own photos
+- **Did:** added 49 of my photos (48 JPG and 1 HEIC, up to 5712 px, 206 MB). Moved the originals to `photos_originals/` and made 1600 px JPG copies in `photos/` with macOS `sips` (28 MB total). Removed the 36 placeholders and raised the build cap from 48 to 60.
+- **Checked:** none of the photos had an EXIF rotation tag, so they're all already upright in TouchDesigner. All 49 loaded without errors, and the spiral and grid show them.
+- **Privacy:** `photos/` and `photos_originals/` are git-ignored, so my photos stay out of the public repo unless I choose to add them.
+- **Tool:** `tools/prepare_photos.sh` repeats the conversion whenever I change the photo set.
