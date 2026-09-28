@@ -1,0 +1,9 @@
+*.toe
+*.toe.*
+Backup/
+CrashAutoSave*
+MediaPipe*.tox
+toxes/
+release/
+__pycache__/
+.DS_Store

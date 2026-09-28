@@ -1,0 +1,482 @@
+"""
+Curiosity Loop - core behaviour.
+
+Pure Python (no TouchDesigner imports) so it can be unit-tested outside TD.
+TouchDesigner-specific code lives in loop_td.py, which feeds `Inputs` in and
+applies the returned `Frame` to operators every frame.
+
+Coordinate conventions
+----------------------
+Input (from loop_td):  "screen-normalized" -1..1, x right +, y up +,
+                       already mirrored so moving right = +x on screen.
+World (render):        orthographic camera, WORLD_W x WORLD_H units,
+                       origin at screen centre.
+"""
+
+import math
+import random
+
+WORLD_W = 16.0
+WORLD_H = 9.0
+BASE_H = 1.8           # photo height in world units at scale 1
+
+IDLE, AWARENESS, REVEAL, FOCUS, DISTORT, FORGET, ORBIT = (
+    'idle', 'awareness', 'reveal', 'focus', 'distort', 'forget', 'orbit')
+
+DEFAULTS = {
+    # --- person / spiral ---
+    'awareness_gain': 0.3,      # how strongly the spiral follows you on first contact
+    'orbit_gain': 1.0,          # ...and after you've "been remembered"
+    'spin': 0.08,               # base spiral rotation, rad/s
+    'person_lost_time': 3.0,    # s without a person before going idle
+    'forget_visitor_time': 8.0, # s idle before the mirror forgets you were here
+    # --- reveal ---
+    'two_hand_time': 0.25,      # s both hands must be visible to snap to grid
+    'one_hand_time': 1.5,       # s one raised hand also reveals (0 = disabled)
+    'hands_lost_time': 1.5,     # s without hands before grid dissolves
+    # --- focus ---
+    'dwell_time': 1.2,          # s of pointing at one photo to select it
+    'hover_dwell_time': 0.0,    # s of open-hand hover to select (0 = pointing only)
+    'focus_time': 1.6,          # s for the chosen photo to separate and fill
+    # --- distort ---
+    'grace_time': 3.0,          # s in distort before stillness counts
+    'still_threshold': 0.12,    # motion below this counts as "still"
+    'still_time': 2.5,          # s of stillness before the mirror lets go
+    'max_distort_time': 30.0,
+    'zoom_min': 1.0,
+    'zoom_max': 3.0,
+    # --- forget ---
+    'forget_time': 3.5,
+    # --- look ---
+    'orbit_trail': 0.82,        # feedback amount in orbit (visual "memory")
+}
+
+
+def clamp(v, lo, hi):
+    return lo if v < lo else hi if v > hi else v
+
+
+def lerp(a, b, t):
+    return a + (b - a) * t
+
+
+def smooth(cur, target, dt, tau):
+    """Frame-rate independent exponential smoothing."""
+    if tau <= 0:
+        return target
+    return cur + (target - cur) * (1.0 - math.exp(-dt / tau))
+
+
+def finite(v, fallback=0.0):
+    return v if isinstance(v, (int, float)) and math.isfinite(v) else fallback
+
+
+class Hand:
+    __slots__ = ('x', 'y', 'tip_x', 'tip_y', 'size', 'pointing', 'speed')
+
+    def __init__(self, x=0.0, y=0.0, tip_x=None, tip_y=None, size=0.1,
+                 pointing=False, speed=0.0):
+        self.x, self.y = x, y
+        self.tip_x = x if tip_x is None else tip_x
+        self.tip_y = y if tip_y is None else tip_y
+        self.size, self.pointing, self.speed = size, pointing, speed
+
+
+class Inputs:
+    def __init__(self, person=False, body_x=0.0, proximity=0.5,
+                 body_speed=0.0, hands=None):
+        self.person = person
+        self.body_x = body_x          # -1..1
+        self.proximity = proximity    # 0 far .. 1 close
+        self.body_speed = body_speed  # screen units / s
+        self.hands = hands or []
+
+
+class PhotoOut:
+    __slots__ = ('x', 'y', 'z', 'rot', 'scale', 'alpha', 'bright')
+
+
+class CursorOut:
+    __slots__ = ('x', 'y', 'size', 'alpha')
+
+
+class Frame:
+    def __init__(self):
+        self.photos = []
+        self.cursors = []
+        self.trail = 0.0
+        self.warp = 0.0
+        self.state = IDLE
+        self.info = {}
+
+
+class _Spring:
+    """Damped spring for one scalar. Gives the 'snap' with slight overshoot."""
+    __slots__ = ('x', 'v')
+
+    def __init__(self, x=0.0):
+        self.x, self.v = x, 0.0
+
+    def step(self, target, dt, k, c):
+        self.v += ((target - self.x) * k - self.v * c) * dt
+        self.x += self.v * dt
+        return self.x
+
+
+# stiffness / damping presets per feel
+SNAP = (140.0, 16.0)    # grid snap: fast, slight overshoot
+FOLLOW = (40.0, 12.0)   # tracking the body / hands
+SLOW = (9.0, 6.0)       # focus separation
+DRIFT = (4.0, 4.2)      # forgetting
+
+
+class CuriosityLoop:
+    def __init__(self, num_photos, config=None, seed=7):
+        self.cfg = dict(DEFAULTS)
+        if config:
+            self.cfg.update(config)
+        self.n = max(1, int(num_photos))
+        self.aspects = [4.0 / 3.0] * self.n
+        rnd = random.Random(seed)
+        self.jitter = [rnd.uniform(-1, 1) for _ in range(self.n)]
+        self.reset()
+
+    # ------------------------------------------------------------------ setup
+    def reset(self):
+        self.state = IDLE
+        self.t = 0.0
+        self.state_t = 0.0
+        self.visited = False
+        self.selected = -1
+        self.hovered = -1
+        self.charge = 0.0
+        self.two_hand_t = 0.0
+        self.one_hand_t = 0.0
+        self.no_hands_t = 0.0
+        self.no_person_t = 0.0
+        self.still_t = 0.0
+        self.motion = 0.0
+        self.spiral_angle = 0.0
+        self.enter_kick = 0.0
+        self.had_person = False
+        # smoothed person-driven values
+        self.s_cx = 0.0
+        self.s_lean = 0.0
+        self.s_expand = 1.0
+        self.s_size = 1.0
+        # grid layout (held while pointing)
+        self.g_spacing = 1.0
+        self.g_angle = 0.0
+        self.g_ox = 0.0
+        self.g_oy = 0.0
+        # distort
+        self.ref_size = None
+        self.zoom = 1.0
+        self.pan_x = 0.0
+        self.pan_y = 0.0
+        self.warp = 0.0
+        self.trail = 0.0
+        self.springs = [{k: _Spring() for k in ('x', 'y', 'z', 'rot', 'scale', 'alpha', 'bright')}
+                        for _ in range(self.n)]
+        for i, sp in enumerate(self.springs):
+            x, y, z, rot, sc = self._spiral_slot(i)
+            sp['x'].x, sp['y'].x, sp['z'].x, sp['rot'].x, sp['scale'].x = x, y, z, rot, sc
+            sp['alpha'].x = 1.0
+            sp['bright'].x = 0.7
+        self.cursor_springs = [{k: _Spring() for k in ('x', 'y', 'size', 'alpha')} for _ in range(2)]
+
+    def set_aspects(self, aspects):
+        for i, a in enumerate(aspects[:self.n]):
+            if a and a > 0:
+                self.aspects[i] = clamp(float(a), 0.4, 3.0)
+
+    def _go(self, state):
+        if state == self.state:
+            return
+        self.state = state
+        self.state_t = 0.0
+        if state == REVEAL:
+            self.charge = 0.0
+            self.hovered = -1
+            self.no_hands_t = 0.0
+        elif state == FOCUS:
+            self.visited = True
+        elif state == DISTORT:
+            self.ref_size = None
+            self.still_t = 0.0
+            self.zoom = 1.0
+            self.pan_x = self.pan_y = 0.0
+        elif state == FORGET:
+            self.charge = 0.0
+            self.hovered = -1
+        elif state == ORBIT:
+            self.selected = -1
+
+    # --------------------------------------------------------------- layouts
+    def _cover_scale(self, i):
+        w = BASE_H * self.aspects[i]
+        return max(WORLD_W / w, WORLD_H / BASE_H) * 1.12
+
+    def _spiral_slot(self, i):
+        f = (i + 0.5) / self.n
+        ang = i * 2.39996 + self.spiral_angle * (0.6 + 0.8 * (1.0 - f))
+        r = (0.9 + 6.0 * math.sqrt(f)) * self.s_expand * (1.0 + self.enter_kick)
+        x = r * math.cos(ang) * 1.1
+        y = r * math.sin(ang) * 0.6
+        # lean: shear the spiral sideways, more at the top
+        x += self.s_cx + self.s_lean * (y + WORLD_H * 0.5) * 0.6
+        rot = math.degrees(self.s_lean) * 0.6 + self.jitter[i] * 6.0
+        scale = (0.5 + 0.35 * (1.0 - f)) * self.s_size
+        z = 1.0 - f
+        return x, y, z, rot, scale
+
+    def _grid_dims(self):
+        cols = max(1, int(math.ceil(math.sqrt(self.n * 1.6))))
+        rows = int(math.ceil(self.n / float(cols)))
+        return cols, rows
+
+    def _grid_slot(self, i):
+        cols, rows = self._grid_dims()
+        c, r = i % cols, i // cols
+        cw, ch = 2.25 * self.g_spacing, 1.75 * self.g_spacing
+        gx = (c - (cols - 1) / 2.0) * cw
+        gy = ((rows - 1) / 2.0 - r) * ch
+        ca, sa = math.cos(self.g_angle), math.sin(self.g_angle)
+        x = gx * ca - gy * sa + self.g_ox
+        y = gx * sa + gy * ca + self.g_oy
+        return x, y, 0.5, math.degrees(self.g_angle), 0.72
+
+    # ----------------------------------------------------------------- update
+    def update(self, inp, dt):
+        dt = clamp(finite(dt, 1 / 60.0), 1e-4, 1 / 20.0)
+        cfg = self.cfg
+        self.t += dt
+        self.state_t += dt
+        hands = [h for h in (inp.hands or []) if h is not None][:2]
+        nh = len(hands)
+        person = bool(inp.person) or nh > 0
+
+        body_speed = finite(inp.body_speed)
+        hand_speed = max([finite(h.speed) for h in hands] or [0.0])
+        self.motion = smooth(self.motion, body_speed + hand_speed, dt, 0.35)
+
+        # --- presence bookkeeping
+        self.no_person_t = 0.0 if person else self.no_person_t + dt
+        if person and not self.had_person and self.state in (IDLE, AWARENESS, ORBIT):
+            self.enter_kick = 0.18   # a tiny "breath" when someone arrives
+        self.had_person = person
+        self.enter_kick = smooth(self.enter_kick, 0.0, dt, 0.8)
+        self.two_hand_t = self.two_hand_t + dt if nh >= 2 else 0.0
+        self.one_hand_t = self.one_hand_t + dt if nh == 1 else 0.0
+        self.no_hands_t = self.no_hands_t + dt if nh == 0 else 0.0
+
+        # --- spiral drivers (person position)
+        gain = 0.0
+        if self.state in (AWARENESS, REVEAL) or (self.state == IDLE and person):
+            gain = cfg['awareness_gain']
+        elif self.state in (ORBIT, FORGET, FOCUS, DISTORT):
+            gain = cfg['orbit_gain'] if self.visited else cfg['awareness_gain']
+        if not person:
+            gain = 0.0
+        bx = clamp(finite(inp.body_x), -1.0, 1.0)
+        prox = clamp(finite(inp.proximity, 0.5), 0.0, 1.0)
+        orbit_mode = self.visited and self.state in (ORBIT, FORGET)
+        self.s_cx = smooth(self.s_cx, gain * bx * WORLD_W * 0.28, dt, 0.5)
+        self.s_lean = smooth(self.s_lean, gain * bx * 0.35, dt, 0.6)
+        self.s_expand = smooth(self.s_expand, 1.0 + gain * (prox - 0.5) * 0.7, dt, 0.6)
+        self.s_size = smooth(self.s_size, 1.0 + (gain * (prox - 0.5) * 1.1 if orbit_mode else 0.0), dt, 0.6)
+        self.spiral_angle += dt * (cfg['spin'] + gain * clamp(self.motion, 0.0, 2.0) * 0.5)
+
+        # --- state machine
+        s = self.state
+        if s in (IDLE, AWARENESS, ORBIT):
+            if s == IDLE and person:
+                self._go(ORBIT if self.visited else AWARENESS)
+            elif s != IDLE and self.no_person_t > cfg['person_lost_time']:
+                self._go(IDLE)
+            elif s == IDLE and self.visited and self.state_t > cfg['forget_visitor_time']:
+                self.visited = False   # slip back into ambiguity for the next visitor
+            if self.state != IDLE and (
+                    self.two_hand_t >= cfg['two_hand_time'] or
+                    (cfg['one_hand_time'] > 0 and self.one_hand_t >= cfg['one_hand_time'])):
+                self._go(REVEAL)
+        elif s == REVEAL:
+            self._update_reveal(hands, dt)
+        elif s == FOCUS:
+            if self.state_t >= cfg['focus_time']:
+                self._go(DISTORT)
+        elif s == DISTORT:
+            self._update_distort(hands, dt)
+        elif s == FORGET:
+            if self.state_t >= cfg['forget_time']:
+                self._go(ORBIT)
+
+        # visual memory: trails only once you've been "remembered"
+        trail_target = cfg['orbit_trail'] if (self.visited and self.state == ORBIT) else 0.0
+        self.trail = smooth(self.trail, trail_target, dt, 1.5)
+        if self.state != DISTORT:
+            self.warp = smooth(self.warp, 0.0, dt, 0.3)
+
+        return self._compose(hands, dt)
+
+    # ----------------------------------------------------------- reveal/focus
+    def _cursor_world(self, h):
+        return h.tip_x * WORLD_W * 0.5, h.tip_y * WORLD_H * 0.5
+
+    def _update_reveal(self, hands, dt):
+        cfg = self.cfg
+        if self.no_hands_t >= cfg['hands_lost_time']:
+            self._go(ORBIT if self.visited else AWARENESS)
+            return
+        pointing = [h for h in hands if h.pointing]
+
+        # grid layout follows hands - frozen while pointing so you can aim
+        if not pointing and hands:
+            if len(hands) >= 2:
+                a, b = sorted(hands[:2], key=lambda h: h.x)
+                d = math.hypot(b.x - a.x, b.y - a.y)
+                spacing = lerp(0.7, 1.45, clamp((d - 0.4) / 1.0, 0.0, 1.0))
+                angle = clamp(math.atan2(b.y - a.y, b.x - a.x), -0.6, 0.6) * 0.8
+                mx, my = (a.x + b.x) * 0.5, (a.y + b.y) * 0.5
+            else:
+                spacing, angle = 1.0, 0.0
+                mx, my = hands[0].x * 0.5, hands[0].y * 0.5
+            self.g_spacing = smooth(self.g_spacing, spacing, dt, 0.25)
+            self.g_angle = smooth(self.g_angle, angle, dt, 0.25)
+            self.g_ox = smooth(self.g_ox, mx * WORLD_W * 0.18, dt, 0.25)
+            self.g_oy = smooth(self.g_oy, my * WORLD_H * 0.18, dt, 0.25)
+
+        # which photo is the user aiming at?
+        aim = pointing[0] if pointing else (hands[0] if (hands and cfg['hover_dwell_time'] > 0) else None)
+        target = -1
+        if aim is not None:
+            cx, cy = self._cursor_world(aim)
+            best, best_d = -1, 1e9
+            for i, sp in enumerate(self.springs):
+                d = math.hypot(sp['x'].x - cx, sp['y'].x - cy)
+                if d < best_d:
+                    best, best_d = i, d
+            if best_d < 1.3 * self.g_spacing:
+                target = best
+
+        if target >= 0 and target == self.hovered:
+            dwell = cfg['dwell_time'] if pointing else cfg['hover_dwell_time']
+            self.charge += dt / max(dwell, 0.05)
+        elif target >= 0:
+            self.hovered, self.charge = target, 0.0
+        else:
+            # brief tracking dropouts shouldn't reset the aim instantly
+            self.charge = max(0.0, self.charge - dt * 2.0)
+            if self.charge <= 0.0:
+                self.hovered = -1
+        if self.charge >= 1.0 and self.hovered >= 0:
+            self.selected = self.hovered
+            self._go(FOCUS)
+
+    def _update_distort(self, hands, dt):
+        cfg = self.cfg
+        if hands:
+            h = max(hands, key=lambda q: q.size)
+            if self.ref_size is None:
+                self.ref_size = max(h.size, 1e-3)
+            ratio = h.size / self.ref_size
+            zoom = clamp(ratio ** 1.5, cfg['zoom_min'], cfg['zoom_max'])
+            self.zoom = smooth(self.zoom, zoom, dt, 0.35)
+            # pan across the whole image, but never past its edges
+            sc = self._cover_scale(self.selected) * self.zoom
+            max_x = max(0.0, (BASE_H * self.aspects[self.selected] * sc - WORLD_W) * 0.5)
+            max_y = max(0.0, (BASE_H * sc - WORLD_H) * 0.5)
+            self.pan_x = smooth(self.pan_x, -clamp(h.x, -1.0, 1.0) * max_x, dt, 0.3)
+            self.pan_y = smooth(self.pan_y, -clamp(h.y, -1.0, 1.0) * max_y, dt, 0.3)
+            self.warp = smooth(self.warp, clamp(h.speed * 0.6, 0.0, 1.0), dt, 0.12)
+        else:
+            self.warp = smooth(self.warp, 0.0, dt, 0.3)
+
+        if self.state_t > cfg['grace_time']:
+            if self.motion < cfg['still_threshold'] or not hands:
+                self.still_t += dt
+            else:
+                self.still_t = 0.0
+        if self.still_t >= cfg['still_time'] or self.state_t >= cfg['max_distort_time']:
+            self._go(FORGET)
+
+    # ---------------------------------------------------------------- compose
+    def _compose(self, hands, dt):
+        s = self.state
+        fr = Frame()
+        fr.state = s
+        spring = SNAP if s == REVEAL else FOLLOW
+        for i, sp in enumerate(self.springs):
+            if s == REVEAL:
+                x, y, z, rot, sc = self._grid_slot(i)
+                alpha, bright = 1.0, 0.85
+                if i == self.hovered:
+                    sc *= 1.0 + 0.3 * self.charge
+                    z += 1.0
+                    bright = 0.85 + 0.15 * self.charge
+                elif self.hovered >= 0:
+                    bright = 0.85 - 0.3 * self.charge
+                prof = spring
+            elif s in (FOCUS, DISTORT) and i == self.selected:
+                x, y, rot = 0.0, 0.0, 0.0
+                z = 3.0
+                sc = self._cover_scale(i)
+                alpha, bright = 1.0, 1.0
+                prof = SLOW
+                if s == DISTORT:
+                    sc *= self.zoom
+                    x, y = self.pan_x, self.pan_y
+                    rot = self.warp * 4.0 * math.sin(self.t * 7.0)
+                    prof = FOLLOW
+            elif s in (FOCUS, DISTORT):
+                x, y, z, rot, sc = self._grid_slot(i)
+                sc *= 0.9
+                alpha, bright = 0.08, 0.3
+                prof = SLOW
+            else:
+                x, y, z, rot, sc = self._spiral_slot(i)
+                alpha = 1.0
+                bright = 0.55 if s == IDLE else 0.75
+                prof = DRIFT if s == FORGET else FOLLOW
+                if s == FORGET and i == self.selected:
+                    z = 3.0
+            k, c = prof
+            o = PhotoOut()
+            o.x = sp['x'].step(x, dt, k, c)
+            o.y = sp['y'].step(y, dt, k, c)
+            o.z = sp['z'].step(z, dt, k * 2, c * 1.4)
+            o.rot = sp['rot'].step(rot, dt, k, c)
+            o.scale = max(0.01, sp['scale'].step(sc, dt, k, c))
+            a_prof = DRIFT if s == FORGET else SLOW
+            o.alpha = clamp(sp['alpha'].step(alpha, dt, *a_prof), 0.0, 1.0)
+            o.bright = clamp(sp['bright'].step(bright, dt, *SLOW), 0.0, 1.5)
+            fr.photos.append(o)
+
+        # cursors: only while the grid is up - they're the "I see your hand" hint
+        for idx in range(2):
+            cs = self.cursor_springs[idx]
+            h = hands[idx] if idx < len(hands) else None
+            vis = s == REVEAL and h is not None
+            if h is not None:
+                tx, ty = self._cursor_world(h)
+            else:
+                tx, ty = cs['x'].x, cs['y'].x
+            aiming = h is not None and (h.pointing or len(hands) == 1)
+            size = 0.12 + (0.25 * (1.0 - self.charge) if aiming else 0.1)
+            alpha = (0.85 if (h is not None and h.pointing) else 0.35) if vis else 0.0
+            co = CursorOut()
+            co.x = cs['x'].step(tx, dt, *FOLLOW)
+            co.y = cs['y'].step(ty, dt, *FOLLOW)
+            co.size = max(0.01, cs['size'].step(size, dt, *FOLLOW))
+            co.alpha = clamp(cs['alpha'].step(alpha, dt, *SLOW), 0.0, 1.0)
+            fr.cursors.append(co)
+
+        fr.trail = self.trail
+        fr.warp = self.warp
+        fr.info = {
+            'state': s, 'visited': self.visited, 'hands': len(hands),
+            'selected': self.selected, 'hovered': self.hovered,
+            'charge': round(self.charge, 2), 'motion': round(self.motion, 3),
+            'still_t': round(self.still_t, 2), 'zoom': round(self.zoom, 2),
+        }
+        return fr
