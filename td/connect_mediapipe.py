@@ -31,7 +31,8 @@ def _connect():
     glue = cl.op('loop_td').module
 
     # 1. only the models we need (names match the MediaPipe COMP's parameters)
-    wanted = {'Detectgestures': True, 'Detectposes': True,
+    # Showoverlays off: the ghost layer should be a clean mirror, not debug skeletons
+    wanted = {'Showoverlays': False, 'Detectgestures': True, 'Detectposes': True,
               'Detectfacelandmarks': False, 'Detectfaces': False, 'Detectobjects': False,
               'Detectimages': False, 'Detectimageembeddings': False, 'Detectsegments': False}
     for name, val in wanted.items():

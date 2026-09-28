@@ -135,6 +135,7 @@ class Tracker:
         self.hand_sig = self.pose_sig = None
         self.range_min = 0.0
         self.range_absmax = 0.0
+        self.range_mean = None     # average coordinate: ~0.5 for 0..1 data, ~0 for centered
         self.ydown_vote = 1.0      # >0 means raw y points down (MediaPipe default)
         self.stale = {}            # key -> (signature, since)
         self.hand_state = {}       # entity -> dict
@@ -163,17 +164,23 @@ class Tracker:
         return now - prev[1] < 0.4       # frozen values = tracker lost you
 
     def _observe_range(self, pts):
-        for x, y in pts.values():
-            self.range_min = min(self.range_min, x, y)
-            self.range_absmax = max(self.range_absmax, abs(x), abs(y))
+        # off-screen landmarks legitimately fall outside 0..1 (e.g. legs below
+        # the frame), so decide the range from the average, not the extremes
+        vals = [v for p in pts.values() for v in p]
+        for v in vals:
+            self.range_min = min(self.range_min, v)
+            self.range_absmax = max(self.range_absmax, abs(v))
+        if vals:
+            m = sum(vals) / len(vals)
+            self.range_mean = m if self.range_mean is None else self.range_mean + (m - self.range_mean) * 0.02
 
     def _to01(self, v):
         mode = BASE.par.Range.eval()
         if mode == 'auto':
-            if self.range_min < -0.05:
-                mode = 'm1to1' if self.range_absmax > 0.75 else 'm05to05'
-            else:
+            if self.range_mean is None or self.range_mean > 0.08:
                 mode = 'zeroone'
+            else:
+                mode = 'm1to1' if self.range_absmax > 0.75 else 'm05to05'
         if mode == 'm1to1':
             return (v + 1.0) * 0.5
         if mode == 'm05to05':
@@ -448,6 +455,6 @@ def Diagnose():
         print(ChannelMap(chop, aliases, n).describe())
     tr = _S['tracker']
     if tr:
-        print('range_min=%.3f absmax=%.3f  ydown_vote=%.2f' % (tr.range_min, tr.range_absmax, tr.ydown_vote))
+        print('range_min=%.3f absmax=%.3f mean=%s  ydown_vote=%.2f' % (tr.range_min, tr.range_absmax, tr.range_mean, tr.ydown_vote))
     if _S['loop']:
         print('state:', _S['loop'].state, ' visited:', _S['loop'].visited)

@@ -126,10 +126,15 @@ def _build():
     ex = place(base.create(executeDAT, 'frame_exec'), 2, 0)
     ex.text = (
         "# Runs the Curiosity Loop once per frame. Logic lives in loop_core / loop_td.\n"
+        "def onStart():\n"
+        "\t# frame callbacks stop while the timeline is paused: never open frozen\n"
+        "\top('/').time.play = True\n"
+        "\treturn\n"
+        "\n"
         "def onFrameStart(frame):\n"
         "\top('loop_td').module.update()\n"
         "\treturn\n")
-    setp(ex, framestart=True, active=True)
+    setp(ex, start=True, framestart=True, active=True)
 
     # ---------------------------------------------------------- photos
     exts = ('.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp', '.webp', '.exr')

@@ -24,3 +24,14 @@ Format per entry: what I tried · what broke · what I asked Claude · what fina
   - Open-hand hover selected photos by accident when hands were held still. It now defaults to off, so only pointing selects.
 - **What worked:** All six stages: Awareness, Reveal (grid tilts with the hands), Focus (pointing charges the photo), Distortion (zoom about 2x, pan, velocity warp), Forget, and Orbit (strong lean and trails).
 - **Open issue:** Loading `MediaPipe.tox` broke the MCP bridge's routes ("No route matched"). Restarting TD should fix it.
+
+## 2026-09-28 - Live camera
+- **Tried:** Wired MediaPipe (hands + pose) into the piece with `td/connect_mediapipe.py`.
+- **What broke, and the fixes:**
+  - The MCP bridge returned "No route matched". The cause wasn't MediaPipe: after the project moved folders, the bridge's `externaltox` path was saved relative to the project (`code/curiosity-loop/../Downloads/...`), which points nowhere. Set it to the absolute path and pulsed a reload.
+  - Double-clicking a `.tox` opens a second TouchDesigner. Drag it into the network instead.
+  - The piece froze because the timeline got paused, and frame callbacks only run while it plays. `frame_exec` now forces play on start.
+  - The hand dots were in the wrong place. Off-screen pose landmarks (legs) go below 0, so the auto range detection wrongly chose -1..1. It now decides from the average coordinate, not the extremes.
+  - MediaPipe's debug overlays showed up in the ghost mirror. Set `Showoverlays` off.
+- **Confirmed:** MediaPipe outputs `h1:wrist:x`-style channels in 0..1 with y up. The parser recognised 42 hand and 33 pose landmarks. The landmarks match the unmirrored video frame, so flipping both keeps the dots on your real hands.
+- **What worked:** Standing in front of the camera triggered Awareness, raising hands revealed the grid, and pointing charged a photo.
