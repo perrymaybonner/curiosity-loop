@@ -130,6 +130,8 @@ def _build():
         "def onStart():\n"
         "\t# frame callbacks stop while the timeline is paused: never open frozen\n"
         "\top('/').time.play = True\n"
+        "\t# open the output window once the network has settled\n"
+        "\trun(\"op('/project1/curiosity_loop/window').par.winopen.pulse()\", delayFrames=90)\n"
         "\treturn\n"
         "\n"
         "def onFrameStart(frame):\n"

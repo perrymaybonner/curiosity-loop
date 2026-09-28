@@ -17,6 +17,10 @@ PERSON → CURIOUS → EXPERIMENTS → DISCOVERS → EXPLORES → SYSTEM LETS GO
 | 5 | **Forget** | stay still for ~2.5 s, or drop your hands | The image shrinks back into the collection and the others fade back in |
 | 6 | **Orbit** | automatically | The spiral returns, now reacting strongly: it leans with you, and photos grow or shrink with your distance. After 8 s with nobody there, it forgets and returns to the subtle stage 1 |
 
+## Open it
+
+Double-click **Curiosity Loop** on the Desktop. It's a Finder alias to `curiosity_loop_final.toe` in this folder, which is the approved version. TouchDesigner opens it, starts the timeline, and pops up the output window after about 1.5 s. Keep the `.toe` inside this folder: it finds `td/` and `photos/` relative to itself, so a plain copy elsewhere would break.
+
 ## Folder layout
 
 ```

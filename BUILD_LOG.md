@@ -65,3 +65,7 @@ Format per entry: what I tried · what broke · what I asked Claude · what fina
 ## 2026-09-28 - No lag
 - **Asked for:** remove the lag effect when images move.
 - **Changed:** turned off the motion trails (feedback smear) in Orbit (`orbit_trail` 0; the feedback chain is still in the network if I ever want it back). Photos that were hidden in the spiral cycle now fade in quickly when the grid reveals instead of lagging behind. Orbit now differs from Awareness only by reacting more strongly.
+
+## 2026-09-28 - Final version
+- Approved as final. Saved as `curiosity_loop_final.toe` (a copy of `curiosity_loop.20.toe`), with a **Curiosity Loop** Finder alias on the Desktop. An alias rather than a copy, because the project resolves `td/` and `photos/` relative to its own folder.
+- `frame_exec` `onStart` now also opens the output window 90 frames after launch, so double-clicking the alias goes straight to the piece.
