@@ -56,3 +56,8 @@ Format per entry: what I tried · what broke · what I asked Claude · what fina
 - **Checked:** none of the photos had an EXIF rotation tag, so they're all already upright in TouchDesigner. All 49 loaded without errors, and the spiral and grid show them.
 - **Privacy:** `photos/` and `photos_originals/` are git-ignored, so my photos stay out of the public repo unless I choose to add them.
 - **Tool:** `tools/prepare_photos.sh` repeats the conversion whenever I change the photo set.
+
+## 2026-09-28 - Calmer selected photo
+- **Asked for:** a selected photo was too zoomed in and had a weird filter. Don't zoom; keep the photo clearly visible with some background showing.
+- **Changed:** the selected photo now fits inside 80% of the screen with nothing cropped (`focus_fill`, a contain fit instead of cover). Hand-distance zoom is off (`zoom_max` 1.0), and the velocity warp and wobble are off (`warp_amount` 0). Instead the photo drifts gently with the hand (`focus_drift`). The rest of the collection stays visible behind it at 30% (`focus_others_alpha`), and the camera ghost shows through too.
+- **Checked:** selected a photo live with the simulator. The whole photo is visible and clean, with the grid and ghost around it. The tests now assert a fit of about 80%, a visible background, and no warp.

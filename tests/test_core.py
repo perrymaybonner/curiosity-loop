@@ -70,7 +70,11 @@ def test_full_loop():
     assert fr.state == L.DISTORT, fr.state
     sel = fr.photos[5]
     others = [p.alpha for i, p in enumerate(fr.photos) if i != 5]
-    assert sel.scale > 5 and max(others) < 0.3, (sel.scale, max(others))
+    w, h = sel.scale * L.BASE_H * loop.aspects[5], sel.scale * L.BASE_H
+    fill = max(w / L.WORLD_W, h / L.WORLD_H)
+    assert w < L.WORLD_W and h < L.WORLD_H and 0.7 < fill <= 0.85, ('whole photo, not zoomed', w, h)
+    assert 0.15 < max(others) < 0.5, 'background still shows'
+    assert fr.warp == 0.0, 'no warp filter by default'
 
     fr = run(loop, 4.0, exploring)
     assert fr.state == L.DISTORT, 'moving user keeps exploring'

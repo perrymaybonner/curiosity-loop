@@ -54,7 +54,11 @@ DEFAULTS = {
     'still_time': 2.5,          # s of stillness before the mirror lets go
     'max_distort_time': 30.0,
     'zoom_min': 1.0,
-    'zoom_max': 3.0,
+    'zoom_max': 1.0,            # >1 lets hand distance zoom in (off: show the whole photo)
+    'focus_fill': 0.8,          # selected photo fills this much of the screen, uncropped
+    'focus_drift': 0.6,         # world units the photo drifts with your hand
+    'warp_amount': 0.0,         # velocity warp / wobble while exploring (0 = clean image)
+    'focus_others_alpha': 0.3,  # how visible the rest of the collection stays behind it
     # --- forget ---
     'forget_time': 3.5,
     # --- look ---
@@ -226,6 +230,12 @@ class CuriosityLoop:
             self.selected = -1
 
     # --------------------------------------------------------------- layouts
+    def _focus_scale(self, i):
+        """largest scale that shows the whole photo inside focus_fill of the screen"""
+        w = BASE_H * self.aspects[i]
+        fill = clamp(self.cfg['focus_fill'], 0.2, 1.0)
+        return min(WORLD_W * fill / w, WORLD_H * fill / BASE_H)
+
     def _cover_scale(self, i):
         w = BASE_H * self.aspects[i]
         return max(WORLD_W / w, WORLD_H / BASE_H) * 1.12
@@ -448,12 +458,18 @@ class CuriosityLoop:
             zoom = clamp(ratio ** 1.5, cfg['zoom_min'], cfg['zoom_max'])
             self.zoom = smooth(self.zoom, zoom, dt, 0.35)
             # pan across the whole image, but never past its edges
-            sc = self._cover_scale(self.selected) * self.zoom
-            max_x = max(0.0, (BASE_H * self.aspects[self.selected] * sc - WORLD_W) * 0.5)
-            max_y = max(0.0, (BASE_H * sc - WORLD_H) * 0.5)
-            self.pan_x = smooth(self.pan_x, -clamp(h.x, -1.0, 1.0) * max_x, dt, 0.3)
-            self.pan_y = smooth(self.pan_y, -clamp(h.y, -1.0, 1.0) * max_y, dt, 0.3)
-            self.warp = smooth(self.warp, clamp(h.speed * 0.6, 0.0, 1.0), dt, 0.12)
+            # zoomed past the screen: pan across it; otherwise drift gently with the hand
+            sc = self._focus_scale(self.selected) * self.zoom
+            over_x = (BASE_H * self.aspects[self.selected] * sc - WORLD_W) * 0.5
+            over_y = (BASE_H * sc - WORLD_H) * 0.5
+            hx, hy = clamp(h.x, -1.0, 1.0), clamp(h.y, -1.0, 1.0)
+            if over_x > 0 or over_y > 0:
+                tx, ty = -hx * max(over_x, 0.0), -hy * max(over_y, 0.0)
+            else:
+                tx, ty = hx * cfg['focus_drift'], hy * cfg['focus_drift'] * 0.6
+            self.pan_x = smooth(self.pan_x, tx, dt, 0.4)
+            self.pan_y = smooth(self.pan_y, ty, dt, 0.4)
+            self.warp = smooth(self.warp, clamp(h.speed * 0.6, 0.0, 1.0) * cfg['warp_amount'], dt, 0.12)
         else:
             self.warp = smooth(self.warp, 0.0, dt, 0.3)
 
@@ -485,7 +501,7 @@ class CuriosityLoop:
             elif s in (FOCUS, DISTORT) and i == self.selected:
                 x, y, rot = 0.0, 0.0, 0.0
                 z = 3.0
-                sc = self._cover_scale(i)
+                sc = self._focus_scale(i)
                 alpha, bright = 1.0, 1.0
                 prof = SLOW
                 if s == DISTORT:
@@ -496,7 +512,7 @@ class CuriosityLoop:
             elif s in (FOCUS, DISTORT):
                 x, y, z, rot, sc = self._grid_slot(i)
                 sc *= 0.9
-                alpha, bright = 0.08, 0.3
+                alpha, bright = self.cfg['focus_others_alpha'], 0.45
                 prof = SLOW
             else:
                 x, y, z, rot, sc = self._spiral_slot(i)
