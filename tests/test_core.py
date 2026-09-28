@@ -103,18 +103,44 @@ def test_cursor_toggle():
     assert all(c.alpha > 0.1 for c in fr.cursors), 'dots show when enabled'
 
 
-def test_spiral_breathes_into_circle():
+def _settle(loop):
+    """snap every photo straight to its spiral slot (skip the springs)"""
+    for i, sp in enumerate(loop.springs):
+        for k, v in zip(('x', 'y', 'z', 'rot', 'scale'), loop._spiral_slot(i)):
+            sp[k].x = v
+
+
+def test_spiral_builds_out_then_becomes_circle():
     loop = L.CuriosityLoop(36)
-    radii = lambda: [math.hypot(p.x / 1.15, p.y) for p in loop._compose([], DT).photos]
-    loop.t = 0.0                                  # tight spiral
-    loop.springs = [dict((k, L._Spring(v)) for k, v in zip(('x', 'y', 'z', 'rot', 'scale', 'alpha', 'bright'),
-                    list(loop._spiral_slot(i)) + [1, 1])) for i in range(loop.n)]
-    spread_spiral = max(radii()) - min(radii())
-    loop.t = loop.cfg['breathe_period'] / 2.0     # fully open
-    loop.springs = [dict((k, L._Spring(v)) for k, v in zip(('x', 'y', 'z', 'rot', 'scale', 'alpha', 'bright'),
-                    list(loop._spiral_slot(i)) + [1, 1])) for i in range(loop.n)]
-    spread_circle = max(radii()) - min(radii())
-    assert spread_spiral > 2.5 and spread_circle < 0.3, (spread_spiral, spread_circle)
+    c = loop.cfg
+    radii = lambda: [math.hypot(sp['x'].x / 1.15, sp['y'].x) for sp in loop.springs]
+
+    loop.cycle_t = c['grow_time'] * 0.25          # early: only some photos are out
+    visible, m = loop._cycle()
+    assert 6 < visible < 12 and m == 0.0, (visible, m)
+    out = [loop._presence(i, visible) for i in range(loop.n)]
+    assert out[0] == 1.0 and out[-1] == 0.0, 'center photos first, outer ones later'
+
+    loop.cycle_t = c['grow_time'] + 1.0           # full spiral
+    assert loop._cycle() == (36.0, 0.0)
+    _settle(loop)
+    assert max(radii()) - min(radii()) > 2.5, 'spiral spans center to edge'
+
+    loop.cycle_t = c['grow_time'] + c['spiral_hold'] + c['to_circle'] + 1.0   # ring
+    assert loop._cycle() == (36.0, 1.0)
+    _settle(loop)
+    assert max(radii()) - min(radii()) < 0.3, 'ring: everyone on one radius'
+
+    total = sum(c[k] for k in ('grow_time', 'spiral_hold', 'to_circle', 'circle_time', 'to_spiral', 'retract_time'))
+    loop.cycle_t = total - 0.01                   # end of cycle: gathered back in
+    assert loop._cycle()[0] < 0.1
+
+
+def test_forget_returns_to_full_spiral():
+    loop = L.CuriosityLoop(36)
+    loop.cycle_t = 1.0                            # half-built spiral
+    loop._go(L.FORGET)
+    assert loop._cycle() == (36.0, 0.0)
 
 
 def test_grid_fits_screen():

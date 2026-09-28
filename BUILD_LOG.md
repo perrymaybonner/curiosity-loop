@@ -45,3 +45,8 @@ Format per entry: what I tried · what broke · what I asked Claude · what fina
   - The grid fits itself to the photo count (8x5 for 36). The minimum spacing was raised because close hands made the photos overlap.
   - The white hand dots are off by default (**Hand Dots** toggle on the Input page). The photo you point at lifts slightly right away, so you still know what you're aiming at.
 - **Tests:** added tests for the spiral/circle shape, the grid fitting 12-48 photos, and the dot toggle. All 8 pass.
+
+## 2026-09-28 - Spiral rebuilt as a build-out cycle
+- **Asked for:** the spiral should start with few images, spiral out with more until it's a big spiral, then turn into a rotating circle.
+- **Changed:** the idle orbit is now a repeating cycle of about 34 s: build out (12 s, photos slide out from the center one by one along the arm), hold the full spiral (3 s), unwind into a ring (3 s), rotate the ring (8 s, 2.5x faster), wind back (2.5 s), and gather in, outermost first (5 s). Hidden photos are both shrunk and transparent. Entering Forget jumps the cycle to the full spiral so the collection comes back complete. All timings are in `DEFAULTS` in `loop_core.py`.
+- **Checked:** rendered six frames of the cycle offline from the same code (few, half, full, opening, ring, gathering). Replaced the breathing tests with build-out/ring/gather tests and a Forget test. All 9 pass.
