@@ -35,3 +35,4 @@ Format per entry: what I tried · what broke · what I asked Claude · what fina
   - MediaPipe's debug overlays showed up in the ghost mirror. Set `Showoverlays` off.
 - **Confirmed:** MediaPipe outputs `h1:wrist:x`-style channels in 0..1 with y up. The parser recognised 42 hand and 33 pose landmarks. The landmarks match the unmirrored video frame, so flipping both keeps the dots on your real hands.
 - **What worked:** Standing in front of the camera triggered Awareness, raising hands revealed the grid, and pointing charged a photo.
+- **Snapshot:** saved the working first run as `curiosity_loop_firstrun.toe` (a local file; .toe files aren't committed).
