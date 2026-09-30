@@ -69,3 +69,11 @@ Format per entry: what I tried · what broke · what I asked Claude · what fina
 ## 2026-09-28 - Final version
 - Approved as final. Saved as `curiosity_loop_final.toe` (a copy of `curiosity_loop.20.toe`), with a **Curiosity Loop** Finder alias on the Desktop. An alias rather than a copy, because the project resolves `td/` and `photos/` relative to its own folder.
 - `frame_exec` `onStart` now also opens the output window 90 frames after launch, so double-clicking the alias goes straight to the piece.
+
+## 2026-09-30 - Spiral artworks
+- **Asked for:** make it more conceptual. Same movement and gestures, but the images become 40 artworks about spirals and circular motion, from open-access museum collections with real metadata. Kept TouchDesigner, kept pointing, no text on screen (the metadata is for documentation).
+- **Did:** wrote `scripts/download_artworks.py`, which only uses the official APIs: Met Open Access (`isPublicDomain`) and Cleveland Open Access (`CC0`). `candidates` found 777 eligible works. I picked 40 across ancient, drawings/prints, paintings, photographs and decorative art, ordered in `artworks/selection.json`. `build` re-fetched every record, downloaded the web-size images (16 MB total), and wrote `artworks.json/.csv` and a sources/licenses README.
+- **Verified:** 40 records and 40 images, each with a museum, object number, object URL, image URL and license. No fields were fabricated (missing ones are `null`). All 40 loaded in TouchDesigner with no errors, and the grid shows them all.
+- **Hiccups:** the Met API rate-limits bursts (searches suddenly returned 0), so the script retries and the build pauses between requests. The Moussette lightning photo from the spec wasn't found through the API, so I left it out.
+- **Build:** added a **Photo Folder** setting (default `artworks/images`), so switching back to my own photos is one field.
+- **Snapshot:** saved the approved photo version as `curiosity_loop_v1.toe` before these changes.

@@ -21,7 +21,6 @@ def _build():
     def path(*parts):   # relative to the .toe when possible, so the repo stays portable
         return '/'.join(parts) if rel else os.path.join(root_dir, *parts)
     td_dir = os.path.join(root_dir, 'td')
-    photo_dir = os.path.join(root_dir, 'photos')
     if not os.path.isfile(os.path.join(td_dir, 'loop_core.py')):
         print('!! Could not find td/loop_core.py next to this .toe (project.folder = %s).' % root_dir)
         print('!! Save the .toe inside the curiosity-loop folder, then run build again.')
@@ -79,6 +78,8 @@ def _build():
     inp.appendCHOP('Handchop', label='Hand Tracking CHOP')
     inp.appendCHOP('Posechop', label='Pose Tracking CHOP')
     inp.appendTOP('Videotop', label='Webcam TOP (ghost)')
+    pf = inp.appendStr('Photofolder', label='Photo Folder')[0]
+    pf.default = pf.val = 'artworks/images'
     t(inp, 'Mirrorx', 'Mirror X', True)
     m = inp.appendMenu('Yaxis', label='Raw Y Axis')[0]
     m.menuNames, m.menuLabels = ['auto', 'down', 'up'], ['Auto (from pose)', 'Down (MediaPipe raw)', 'Up']
@@ -141,6 +142,9 @@ def _build():
 
     # ---------------------------------------------------------- photos
     exts = ('.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp', '.webp', '.exr')
+    # which images to show: the spiral artworks by default, or e.g. `photos` for my own
+    photo_folder = (saved.get('Photofolder') or 'artworks/images').strip('/')
+    photo_dir = os.path.join(root_dir, *photo_folder.split('/'))
     files = sorted(fn for fn in os.listdir(photo_dir) if fn.lower().endswith(exts)) if os.path.isdir(photo_dir) else []
     files = files[:60]
     if not files:
@@ -149,7 +153,7 @@ def _build():
     for i, fn in enumerate(files):
         row, col = 2 + (i // 8) * 3, i % 8
         img = place(base.create(moviefileinTOP, 'img%d' % i), col, row)
-        setp(img, file=path('photos', fn))
+        setp(img, file=path(*(photo_folder.split('/') + [fn])))
         mat = place(base.create(constantMAT, 'mat_photo%d' % i), col, row + 1)
         setp(mat, colormap=img.name, blending=True, alpha=1.0)
         geo = place(base.create(geometryCOMP, 'photo%d' % i), col, row + 2)
