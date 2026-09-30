@@ -84,3 +84,7 @@ Format per entry: what I tried · what broke · what I asked Claude · what fina
 - **Correctness:** each caption is looked up by the image's own file name in `artworks/metadata/artworks.json` (the record downloaded with that image), and `caption_for()` uses the museum's exact wording and only the fields it provided. Checked all 40: every photo's caption comes from the record with the same file name and the titles match. Checked visually for Hiroshige (#3) and the long Galli Bibiena title (#14), which wraps at a smaller size instead of being cut.
 - **Timing check:** traced the states live: selected at 562.3 s, full size at 563.9 s, letting go at 570.3 s, exactly 8.0 s.
 - **Own photos:** with Photo Folder set to `photos` there's no metadata, so the old centered view is used and no caption appears.
+
+## 2026-09-30 - Camera fix and v2 snapshot
+- **Webcam was black:** MediaPipe reported `webcamStarted`, but the frames were black. The MacBook lid was nearly closed, so the built-in camera saw nothing, then only the trackpad. With the screen upright, tracking worked right away. (The iPhone Continuity camera option gave a black feed, so it stays on the MacBook camera.) TouchDesigner also relaunched into a new empty project partway through; I reopened Curiosity Loop from File > Open Recent.
+- **Saved** the spiral-artworks-with-captions version as `curiosity_loop_v2_artworks.toe`, with a **Curiosity Loop - Spiral Artworks** alias on the Desktop. The **Curiosity Loop** alias still opens the working file (`curiosity_loop_final.toe`).

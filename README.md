@@ -19,7 +19,7 @@ PERSON → CURIOUS → EXPERIMENTS → DISCOVERS → EXPLORES → SYSTEM LETS GO
 
 ## Open it
 
-Double-click **Curiosity Loop** on the Desktop. It's a Finder alias to `curiosity_loop_final.toe` in this folder, which is the approved version. TouchDesigner opens it, starts the timeline, and pops up the output window after about 1.5 s. Keep the `.toe` inside this folder: it finds `td/` and `photos/` relative to itself, so a plain copy elsewhere would break.
+Double-click **Curiosity Loop** on the Desktop for the working version, or **Curiosity Loop - Spiral Artworks** for the frozen artwork-and-captions version (`curiosity_loop_v2_artworks.toe`). Other snapshots: `curiosity_loop_v1.toe` (my own photos) and `curiosity_loop_firstrun.toe`. It's a Finder alias to `curiosity_loop_final.toe` in this folder, which is the approved version. TouchDesigner opens it, starts the timeline, and pops up the output window after about 1.5 s. Keep the `.toe` inside this folder: it finds `td/` and `photos/` relative to itself, so a plain copy elsewhere would break.
 
 ## Folder layout
 
