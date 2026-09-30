@@ -12,7 +12,9 @@ Useful from the Textport:
   op('/project1/curiosity_loop/loop_td').module.Reset()      # restart the loop
 """
 
+import json
 import math
+import os
 import re
 import time
 import traceback
@@ -339,7 +341,34 @@ def _ops():
             'cursors': [(op('cursor%d' % i), op('mat_cursor%d' % i)) for i in range(2)],
             'fb_decay': op('fb_decay'), 'warp': op('warp'), 'ghost_sel': op('ghost_sel'),
             'ghost_level': op('ghost_level'), 'ghost_switch': op('ghost_switch'),
-            'debug_text': op('debug_text'), 'debug_switch': op('debug_switch')}
+            'debug_text': op('debug_text'), 'debug_switch': op('debug_switch'),
+            'cap_title': op('cap_title'), 'cap_body': op('cap_body'),
+            'cap_body_over': op('cap_body_over'), 'cap_shade': op('cap_shade_level')}
+
+
+def _load_captions(ops, core):
+    """One caption per photo, found by the image's OWN file name in the museum
+    metadata next to its folder (artworks/images/007.jpg -> artworks/metadata/
+    artworks.json record with filename 007.jpg). No record -> no caption."""
+    caps, cache = [], {}
+    for _, _, img in ops['photos']:
+        cap = None
+        if img is not None:
+            f = img.par.file.eval()
+            full = f if os.path.isabs(f) else os.path.join(project.folder, f)
+            meta = os.path.join(os.path.dirname(os.path.dirname(full)), 'metadata', 'artworks.json')
+            if meta not in cache:
+                try:
+                    with open(meta, encoding='utf-8') as fh:
+                        cache[meta] = {r['filename']: r for r in json.load(fh)}
+                except Exception:
+                    cache[meta] = {}
+            rec = cache[meta].get(os.path.basename(full))
+            if rec:
+                title, body = core.caption_for(rec)
+                cap = (title or '', body or '', rec['filename'])
+        caps.append(cap)
+    return caps
 
 
 def Reset():
@@ -359,6 +388,9 @@ def _ensure():
         _S['core'] = version
         _S['loop'] = core.CuriosityLoop(max(1, len(_S['ops']['photos'])), _cfg())
         _S['tracker'] = Tracker()
+        _S['captions'] = _load_captions(_S['ops'], core)
+        _S['cap_shown'] = None
+        _S['loop'].cfg['caption_layout'] = any(_S['captions'])
     return core
 
 
@@ -436,11 +468,47 @@ def apply(fr, ops):
             ops['ghost_sel'].par.top = vid.path
         ops['ghost_switch'].par.index = 1 if vid is not None else 0
         ops['ghost_level'].par.opacity = BASE.par.Ghost.eval()
+    _apply_caption(fr, ops)
     dbg = bool(BASE.par.Debug.eval())
     if ops['debug_switch'] is not None:
         ops['debug_switch'].par.index = 1 if dbg else 0
         if dbg:
             ops['debug_text'].par.text = '  '.join('%s:%s' % kv for kv in fr.info.items())
+
+
+# caption column (pixels in the 1280x720 output): right of the artwork's box
+CAP_X, CAP_TOP, CAP_W, CAP_GAP = 810, 150, 420, 18
+
+
+def _apply_caption(fr, ops):
+    title_top, body_top = ops['cap_title'], ops['cap_body']
+    if title_top is None or body_top is None:
+        return
+    caps = _S.get('captions') or []
+    idx = fr.caption_index
+    cap = caps[idx] if 0 <= idx < len(caps) else None
+    if cap is not None and _S.get('cap_shown') != idx:
+        _S['cap_shown'] = idx
+        title, body, _ = cap
+        # long catalogue titles get a smaller size rather than being cut
+        size = 34 if len(title) <= 40 else (26 if len(title) <= 90 else 19)
+        title_top.par.fontsizex = size
+        title_top.par.text = title
+        body_top.par.text = body
+        # put the details just under however many lines the title wraps to
+        per_line = max(8, int(CAP_W / (size * 0.5)))
+        lines, width = 1, 0
+        for word in title.split():
+            if width and width + 1 + len(word) > per_line:
+                lines, width = lines + 1, len(word)
+            else:
+                width += (1 if width else 0) + len(word)
+        ops['cap_body_over'].par.ty = -(CAP_TOP + lines * size * 1.3 + CAP_GAP)
+    a = fr.caption_alpha if cap is not None else 0.0
+    title_top.par.fontalpha = a
+    body_top.par.fontalpha = a
+    if ops.get('cap_shade') is not None:
+        ops['cap_shade'].par.opacity = a
 
 
 def Diagnose():

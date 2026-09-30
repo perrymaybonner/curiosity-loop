@@ -77,3 +77,10 @@ Format per entry: what I tried · what broke · what I asked Claude · what fina
 - **Hiccups:** the Met API rate-limits bursts (searches suddenly returned 0), so the script retries and the build pauses between requests. The Moussette lightning photo from the spec wasn't found through the API, so I left it out.
 - **Build:** added a **Photo Folder** setting (default `artworks/images`), so switching back to my own photos is one field.
 - **Snapshot:** saved the approved photo version as `curiosity_loop_v1.toe` before these changes.
+
+## 2026-09-30 - Captions for the selected artwork
+- **Asked for:** a title and information for each artwork, shown only while it's selected, with the image returning to the spiral after 5-10 s. The information must be correct for the image.
+- **Changed:** when an artwork is selected it moves into the left 56% of the screen (uncropped), and a caption fades in on the right: the title in Baskerville, then maker (or culture), date, culture, medium, museum and object number in Avenir Next. A soft dark gradient behind the column keeps it readable over the dimmed grid. The selection now always lasts 8 s (`select_hold`) and no longer depends on stillness (`still_exit` off). Then the caption fades and the artwork returns to the spiral.
+- **Correctness:** each caption is looked up by the image's own file name in `artworks/metadata/artworks.json` (the record downloaded with that image), and `caption_for()` uses the museum's exact wording and only the fields it provided. Checked all 40: every photo's caption comes from the record with the same file name and the titles match. Checked visually for Hiroshige (#3) and the long Galli Bibiena title (#14), which wraps at a smaller size instead of being cut.
+- **Timing check:** traced the states live: selected at 562.3 s, full size at 563.9 s, letting go at 570.3 s, exactly 8.0 s.
+- **Own photos:** with Photo Folder set to `photos` there's no metadata, so the old centered view is used and no caption appears.

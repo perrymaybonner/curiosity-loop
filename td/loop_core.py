@@ -56,6 +56,10 @@ DEFAULTS = {
     'zoom_min': 1.0,
     'zoom_max': 1.0,            # >1 lets hand distance zoom in (off: show the whole photo)
     'focus_fill': 0.8,          # selected photo fills this much of the screen, uncropped
+    'select_hold': 8.0,         # s a selected artwork stays up (with its caption) before returning
+    'still_exit': False,        # True: holding still also ends the selection early
+    'caption_layout': False,    # True: artwork moves left to leave room for a caption on the right
+    'caption_box': 0.56,        # width fraction the artwork gets when a caption is shown
     'focus_drift': 0.6,         # world units the photo drifts with your hand
     'warp_amount': 0.0,         # velocity warp / wobble while exploring (0 = clean image)
     'focus_others_alpha': 0.3,  # how visible the rest of the collection stays behind it
@@ -83,6 +87,32 @@ def smooth(cur, target, dt, tau):
 
 def finite(v, fallback=0.0):
     return v if isinstance(v, (int, float)) and math.isfinite(v) else fallback
+
+
+def caption_for(record):
+    """(title, body) for a museum record, using the museum's own wording.
+
+    Only fields the museum provided are shown; nothing is filled in or reworded.
+    Lines: maker (or culture when there is no maker), date, culture (if a maker was
+    shown), medium, then museum and object number.
+    """
+    if not record:
+        return None, None
+
+    def f(key):
+        v = record.get(key)
+        return v.strip() if isinstance(v, str) and v.strip() else None
+
+    maker, culture = f('maker'), f('culture')
+    lines = [maker or culture, f('date')]
+    if maker and culture and culture not in maker:
+        lines.append(culture)
+    lines.append(f('medium'))
+    body = [l for l in lines if l]
+    tail = [l for l in (f('museum'), f('objectNumber')) if l]
+    if tail:
+        body += [''] + tail
+    return f('title'), '\n'.join(body)
 
 
 class Hand:
@@ -120,6 +150,8 @@ class Frame:
         self.cursors = []
         self.trail = 0.0
         self.warp = 0.0
+        self.caption_index = -1     # which artwork's caption to show (-1 = none)
+        self.caption_alpha = 0.0
         self.state = IDLE
         self.info = {}
 
@@ -191,6 +223,7 @@ class CuriosityLoop:
         self.pan_y = 0.0
         self.warp = 0.0
         self.trail = 0.0
+        self.caption_alpha = 0.0
         self.springs = [{k: _Spring() for k in ('x', 'y', 'z', 'rot', 'scale', 'alpha', 'bright')}
                         for _ in range(self.n)]
         for i, sp in enumerate(self.springs):
@@ -231,10 +264,18 @@ class CuriosityLoop:
 
     # --------------------------------------------------------------- layouts
     def _focus_scale(self, i):
-        """largest scale that shows the whole photo inside focus_fill of the screen"""
+        """largest scale that shows the whole photo inside its box, uncropped"""
         w = BASE_H * self.aspects[i]
         fill = clamp(self.cfg['focus_fill'], 0.2, 1.0)
-        return min(WORLD_W * fill / w, WORLD_H * fill / BASE_H)
+        box_w = WORLD_W * (self.cfg['caption_box'] if self.cfg['caption_layout'] else fill)
+        return min(box_w / w, WORLD_H * fill / BASE_H)
+
+    def _focus_x(self):
+        """centre of the artwork's box: left of centre when a caption shares the screen"""
+        if not self.cfg['caption_layout']:
+            return 0.0
+        margin = 0.6
+        return -WORLD_W * 0.5 + margin + WORLD_W * self.cfg['caption_box'] * 0.5
 
     def _cover_scale(self, i):
         w = BASE_H * self.aspects[i]
@@ -478,7 +519,10 @@ class CuriosityLoop:
                 self.still_t += dt
             else:
                 self.still_t = 0.0
-        if self.still_t >= cfg['still_time'] or self.state_t >= cfg['max_distort_time']:
+        # the artwork (and its caption) stays up for select_hold seconds in total, then lets go
+        held = self.state_t + cfg['focus_time']
+        if (held >= cfg['select_hold'] or self.state_t >= cfg['max_distort_time']
+                or (cfg['still_exit'] and self.still_t >= cfg['still_time'])):
             self._go(FORGET)
 
     # ---------------------------------------------------------------- compose
@@ -499,14 +543,14 @@ class CuriosityLoop:
                     bright = 0.85 - 0.3 * self.charge
                 prof = spring
             elif s in (FOCUS, DISTORT) and i == self.selected:
-                x, y, rot = 0.0, 0.0, 0.0
+                x, y, rot = self._focus_x(), 0.0, 0.0
                 z = 3.0
                 sc = self._focus_scale(i)
                 alpha, bright = 1.0, 1.0
                 prof = SLOW
                 if s == DISTORT:
                     sc *= self.zoom
-                    x, y = self.pan_x, self.pan_y
+                    x, y = self._focus_x() + self.pan_x, self.pan_y
                     rot = self.warp * 4.0 * math.sin(self.t * 7.0)
                     prof = FOLLOW
             elif s in (FOCUS, DISTORT):
@@ -556,6 +600,12 @@ class CuriosityLoop:
             co.alpha = clamp(cs['alpha'].step(alpha, dt, *SLOW), 0.0, 1.0)
             fr.cursors.append(co)
 
+        # caption: fades in once the artwork has mostly arrived, out as soon as it lets go
+        showing = (s == DISTORT) or (s == FOCUS and self.state_t > self.cfg['focus_time'] * 0.6)
+        self.caption_alpha = smooth(getattr(self, 'caption_alpha', 0.0), 1.0 if showing else 0.0,
+                                    dt, 0.35 if showing else 0.2)
+        fr.caption_index = self.selected if self.caption_alpha > 0.01 else -1
+        fr.caption_alpha = self.caption_alpha if fr.caption_index >= 0 else 0.0
         fr.trail = self.trail
         fr.warp = self.warp
         fr.info = {

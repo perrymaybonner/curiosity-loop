@@ -76,8 +76,8 @@ def test_full_loop():
     assert 0.15 < max(others) < 0.5, 'background still shows'
     assert fr.warp == 0.0, 'no warp filter by default'
 
-    fr = run(loop, 4.0, exploring)
-    assert fr.state == L.DISTORT, 'moving user keeps exploring'
+    fr = run(loop, 2.0, exploring)
+    assert fr.state == L.DISTORT, 'still exploring before the 8 s hold ends'
 
     fr = run(loop, 3.5, still_hand)
     assert fr.state == L.FORGET, fr.info
@@ -138,6 +138,24 @@ def test_spiral_builds_out_then_becomes_circle():
     total = sum(c[k] for k in ('grow_time', 'spiral_hold', 'to_circle', 'circle_time', 'to_spiral', 'retract_time'))
     loop.cycle_t = total - 0.01                   # end of cycle: gathered back in
     assert loop._cycle()[0] < 0.1
+
+
+def test_selection_holds_then_returns_with_caption():
+    loop = L.CuriosityLoop(16, {'caption_layout': True})
+    run(loop, 1, standing)
+    run(loop, 1, two_hands)
+    fr = run(loop, 2.0, pointing_at(loop, 3))
+    assert loop.selected == 3
+    fr = run(loop, 2.0, exploring)
+    assert fr.state == L.DISTORT and fr.caption_index == 3 and fr.caption_alpha > 0.9
+    assert fr.photos[3].x < -1.0, 'artwork moves left to make room for the caption'
+    # keeps moving the whole time, but still lets go at ~8 s after selection
+    fr = run(loop, 4.0, exploring)
+    assert fr.state == L.DISTORT, '~6.8 s in: still showing'
+    fr = run(loop, 1.5, exploring)
+    assert fr.state in (L.FORGET, L.ORBIT), fr.state
+    fr = run(loop, 1.0, exploring)
+    assert fr.caption_alpha < 0.05, 'caption gone once it lets go'
 
 
 def test_forget_returns_to_full_spiral():

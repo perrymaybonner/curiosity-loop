@@ -12,9 +12,9 @@ PERSON → CURIOUS → EXPERIMENTS → DISCOVERS → EXPLORES → SYSTEM LETS GO
 |---|-------|---------|--------------|
 | 1 | **Awareness** | a body enters the frame | Photos drift in a loose spiral that "breathes" once when you arrive, then shifts slightly with your position, distance and movement |
 | 2 | **Reveal** | both hands up (or one hand held ~1.5 s) | Photos snap into a grid. Hand distance sets spacing, the tilt between your hands rotates it, and their midpoint moves it. Soft dots show where your hands are |
-| 3 | **Focus** | point at a photo for ~1.2 s | The grid freezes so you can aim. The target lifts and brightens as it "charges", then grows to about 80% of the screen, uncropped, while the rest of the collection dims behind it |
-| 4 | **Exploration** | move your hand | The photo drifts gently with your hand. Zoom and warp are available but off by default (`zoom_max`, `warp_amount` in `loop_core.py`) |
-| 5 | **Forget** | stay still for ~2.5 s, or drop your hands | The image shrinks back into the collection and the others fade back in |
+| 3 | **Focus** | point at an artwork for ~1.2 s | The grid freezes so you can aim. The target lifts as it "charges", then moves to the left of the screen, uncropped, and a museum caption fades in on the right: title, maker, date, culture, medium, museum, object number |
+| 4 | **Exploration** | move your hand | The artwork drifts gently with your hand while the caption stays up |
+| 5 | **Forget** | automatically, 8 s after selecting | The caption fades, the artwork shrinks back into the collection, and the spiral returns |
 | 6 | **Orbit** | automatically | The spiral returns, now reacting strongly: it leans with you, and photos grow or shrink with your distance. After 8 s with nobody there, it forgets and returns to the subtle stage 1 |
 
 ## Open it

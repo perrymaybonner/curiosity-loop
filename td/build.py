@@ -237,14 +237,52 @@ def _build():
     master = place(base.create(levelTOP, 'master'), 21, 2)
     master.inputConnectors[0].connect(warp)
 
+    # museum caption for the selected artwork (text + fade driven by loop_td)
+    ink = dict(fontcolorr=0.93, fontcolorg=0.91, fontcolorb=0.87)
+    ctitle = place(base.create(textTOP, 'cap_title'), 22, 6)
+    setp(ctitle, outputresolution='custom', resolutionw=420, resolutionh=300, text='',
+         font='Baskerville', fontsizexunit='pixels', fontsizex=34, wordwrap=True,
+         alignx='left', aligny='top', bgalpha=0.0, fontalpha=0.0, **ink)
+    cbody = place(base.create(textTOP, 'cap_body'), 22, 8)
+    setp(cbody, outputresolution='custom', resolutionw=420, resolutionh=420, text='',
+         font='Avenir Next', fontsizexunit='pixels', fontsizex=17, wordwrap=True,
+         alignx='left', aligny='top', linespacingunit='pixels', linespacing=6,
+         bgalpha=0.0, fontalpha=0.0, fontcolorr=0.72, fontcolorg=0.70, fontcolorb=0.66)
+    # soft dark gradient behind the caption column so the grid never fights the text
+    shade = place(base.create(rampTOP, 'cap_shade'), 22, 10)
+    setp(shade, outputresolution='custom', resolutionw=1280, resolutionh=720, type='horizontal')
+    keys = shade.par.dat.eval() if hasattr(shade.par, 'dat') else None
+    if keys is not None:
+        keys.text = 'pos\tr\tg\tb\ta\n0.0\t0\t0\t0\t0\n0.56\t0\t0\t0\t0\n0.66\t0\t0\t0\t0.82\n1.0\t0\t0\t0\t0.9\n'
+    else:
+        warnings.append('cap_shade: no ramp keys DAT, caption backdrop is flat')
+    shade_lvl = place(base.create(levelTOP, 'cap_shade_level'), 23, 10)
+    shade_lvl.inputConnectors[0].connect(shade)
+    setp(shade_lvl, opacity=0.0)
+    shade_over = place(base.create(overTOP, 'cap_shade_over'), 23, 8)
+    shade_over.inputConnectors[0].connect(shade_lvl)
+    shade_over.inputConnectors[1].connect(master)
+    ctover = place(base.create(overTOP, 'cap_title_over'), 23, 6)
+    ctover.inputConnectors[0].connect(ctitle)
+    ctover.inputConnectors[1].connect(shade_over)
+    setp(ctover, size='input2', prefit='nativeres', justifyh='left', justifyv='top',
+         tunit='pixels', tx=810, ty=-150)
+    cbover = place(base.create(overTOP, 'cap_body_over'), 24, 8)
+    cbover.inputConnectors[0].connect(cbody)
+    cbover.inputConnectors[1].connect(ctover)
+    setp(cbover, size='input2', prefit='nativeres', justifyh='left', justifyv='top',
+         tunit='pixels', tx=810, ty=-240)
+    captioned = place(base.create(nullTOP, 'captioned'), 25, 6)
+    captioned.inputConnectors[0].connect(cbover)
+
     dtext = place(base.create(textTOP, 'debug_text'), 21, 4)
     setp(dtext, outputresolution='custom', resolutionw=1280, resolutionh=720,
          bgalpha=0.0, fontsizex=18, alignx='left', aligny='top', text='')
     dover = place(base.create(overTOP, 'debug_over'), 22, 4)
     dover.inputConnectors[0].connect(dtext)
-    dover.inputConnectors[1].connect(master)
+    dover.inputConnectors[1].connect(captioned)
     dswitch = place(base.create(switchTOP, 'debug_switch'), 23, 2)
-    dswitch.inputConnectors[0].connect(master)
+    dswitch.inputConnectors[0].connect(captioned)
     dswitch.inputConnectors[1].connect(dover)
 
     out = place(base.create(nullTOP, 'out'), 24, 2)
