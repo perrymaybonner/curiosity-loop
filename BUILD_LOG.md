@@ -88,3 +88,8 @@ Format per entry: what I tried · what broke · what I asked Claude · what fina
 ## 2026-09-30 - Camera fix and v2 snapshot
 - **Webcam was black:** MediaPipe reported `webcamStarted`, but the frames were black. The MacBook lid was nearly closed, so the built-in camera saw nothing, then only the trackpad. With the screen upright, tracking worked right away. (The iPhone Continuity camera option gave a black feed, so it stays on the MacBook camera.) TouchDesigner also relaunched into a new empty project partway through; I reopened Curiosity Loop from File > Open Recent.
 - **Saved** the spiral-artworks-with-captions version as `curiosity_loop_v2_artworks.toe`, with a **Curiosity Loop - Spiral Artworks** alias on the Desktop. The **Curiosity Loop** alias still opens the working file (`curiosity_loop_final.toe`).
+
+## 2026-09-30 - Movable window, brighter background
+- **Window:** the output window now has a normal title bar ("Curiosity Loop"), so it can be dragged around. It used to be borderless (`borders` off), which left nothing to grab.
+- **Background:** raised the ghost camera layer from 10% to 35% (`Ghost`) so people can clearly see their hands and themselves behind the artworks. Checked live: hands and room visible, artworks still stand out.
+- Updated `curiosity_loop_v2_artworks.toe` (the Desktop shortcut) with both changes.

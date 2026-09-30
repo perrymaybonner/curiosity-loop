@@ -87,7 +87,7 @@ def _build():
     m.menuNames, m.menuLabels = ['auto', 'zeroone', 'm05to05', 'm1to1'], ['Auto', '0 to 1', '-0.5 to 0.5', '-1 to 1']
     f(inp, 'Nearsw', 'Shoulder Width: Close', 0.40, 0.1, 0.8)
     f(inp, 'Farsw', 'Shoulder Width: Far', 0.12, 0.0, 0.5)
-    f(inp, 'Ghost', 'Ghost Mirror Opacity', 0.10, 0.0, 1.0)
+    f(inp, 'Ghost', 'Ghost Mirror Opacity', 0.35, 0.0, 1.0)
     t(inp, 'Debug', 'Debug Overlay', False)
     t(inp, 'Handdots', 'Hand Dots (Reveal)', False)
 
@@ -292,7 +292,8 @@ def _build():
     base.viewer = True
 
     win = place(base.create(windowCOMP, 'window'), 25, 4)
-    setp(win, winop='out', winw=1280, winh=720, borders=False)
+    # normal title bar so the window can be dragged around
+    setp(win, winop='out', winw=1280, winh=720, borders=True, title='Curiosity Loop')
 
     # ---------------------------------------------------------- done
     try:
