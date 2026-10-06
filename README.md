@@ -8,6 +8,8 @@ IXD415 — Weird Mirror · TouchDesigner 2025 + MediaPipe (webcam only)
 PERSON → CURIOUS → EXPERIMENTS → DISCOVERS → EXPLORES → SYSTEM LETS GO → CURIOUS AGAIN
 ```
 
+**Intro:** while nobody is there the screen is black with **The Spiral** / *A continuous movement through states of being*. When someone enters the frame and starts moving (or has stood there ~4 s), it fades into the mirror; it fades back in once the mirror goes idle. Title, subtitle and an on/off switch are on `curiosity_loop`'s **Intro** page.
+
 | # | Stage | Trigger | What you see |
 |---|-------|---------|--------------|
 | 1 | **Awareness** | a body enters the frame | Photos drift in a loose spiral that "breathes" once when you arrive, then shifts slightly with your position, distance and movement |

@@ -100,6 +100,13 @@ def _build():
     f(tune, 'Stilltime', 'Stillness Before Forget', 2.5, 0.5, 8)
     f(tune, 'Stillthreshold', 'Stillness Threshold', 0.12, 0, 1)
 
+    intro = base.appendCustomPage('Intro')
+    t(intro, 'Intro', 'Show Intro Screen', True)
+    it = intro.appendStr('Introtitle', label='Title')[0]
+    it.default = it.val = 'The Spiral'
+    isub = intro.appendStr('Introsubtitle', label='Subtitle')[0]
+    isub.default = isub.val = 'A continuous movement through states of being'
+
     sim = base.appendCustomPage('Simulate')
     t(sim, 'Simulate', 'Simulate (no camera)', True)
     t(sim, 'Simperson', 'Person Present', False)
@@ -275,14 +282,43 @@ def _build():
     captioned = place(base.create(nullTOP, 'captioned'), 25, 6)
     captioned.inputConnectors[0].connect(cbover)
 
+    # intro screen: black, title + subtitle, faded out by loop_td once someone moves
+    ibg = place(base.create(constantTOP, 'intro_bg'), 22, 12)
+    setp(ibg, outputresolution='custom', resolutionw=1280, resolutionh=720,
+         colorr=0, colorg=0, colorb=0, alpha=1)
+    ititle = place(base.create(textTOP, 'intro_title'), 22, 14)
+    setp(ititle, outputresolution='custom', resolutionw=1280, resolutionh=720,
+         text='=parent().par.Introtitle', font='Baskerville', fontsizexunit='pixels', fontsizex=78,
+         alignx='center', aligny='center', positionunit='pixels', positionx=0, positiony=34,
+         bgalpha=0.0, fontcolorr=0.96, fontcolorg=0.95, fontcolorb=0.92)
+    isubt = place(base.create(textTOP, 'intro_subtitle'), 22, 16)
+    setp(isubt, outputresolution='custom', resolutionw=1280, resolutionh=720,
+         text='=parent().par.Introsubtitle', font='Avenir', fontsizexunit='pixels', fontsizex=22,
+         alignx='center', aligny='center', positionunit='pixels', positionx=0, positiony=-52,
+         bgalpha=0.0, fontcolorr=0.78, fontcolorg=0.77, fontcolorb=0.74)
+    io1 = place(base.create(overTOP, 'intro_title_over'), 23, 13)
+    io1.inputConnectors[0].connect(ititle)
+    io1.inputConnectors[1].connect(ibg)
+    io2 = place(base.create(overTOP, 'intro_sub_over'), 24, 14)
+    io2.inputConnectors[0].connect(isubt)
+    io2.inputConnectors[1].connect(io1)
+    ilevel = place(base.create(levelTOP, 'intro_level'), 25, 14)
+    ilevel.inputConnectors[0].connect(io2)
+    setp(ilevel, opacity=1.0)
+    iover = place(base.create(overTOP, 'intro_over'), 26, 8)
+    iover.inputConnectors[0].connect(ilevel)
+    iover.inputConnectors[1].connect(captioned)
+    presented = place(base.create(nullTOP, 'presented'), 27, 8)
+    presented.inputConnectors[0].connect(iover)
+
     dtext = place(base.create(textTOP, 'debug_text'), 21, 4)
     setp(dtext, outputresolution='custom', resolutionw=1280, resolutionh=720,
          bgalpha=0.0, fontsizex=18, alignx='left', aligny='top', text='')
     dover = place(base.create(overTOP, 'debug_over'), 22, 4)
     dover.inputConnectors[0].connect(dtext)
-    dover.inputConnectors[1].connect(captioned)
+    dover.inputConnectors[1].connect(presented)
     dswitch = place(base.create(switchTOP, 'debug_switch'), 23, 2)
-    dswitch.inputConnectors[0].connect(captioned)
+    dswitch.inputConnectors[0].connect(presented)
     dswitch.inputConnectors[1].connect(dover)
 
     out = place(base.create(nullTOP, 'out'), 24, 2)

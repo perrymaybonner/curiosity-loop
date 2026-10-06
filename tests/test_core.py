@@ -167,6 +167,29 @@ def test_caption_formats():
     assert 'The Met' in b and 'Silver' in b, 'older records keep the museum caption'
 
 
+def test_intro_screen():
+    loop = L.CuriosityLoop(16)
+    fr = run(loop, 2, nobody)
+    assert fr.intro_alpha > 0.95, 'black title screen while nobody is there'
+    still = lambda t: L.Inputs(person=True, body_speed=0.0)
+    fr = run(loop, 1.5, still)
+    assert fr.intro_alpha > 0.9, 'someone arrived but has not moved yet'
+    fr = run(loop, 2.5, standing_moving)
+    assert fr.intro_alpha < 0.1, 'moving fades the intro into the mirror'
+    fr = run(loop, 3.0, nobody)          # leaves: mirror goes idle after person_lost_time
+    fr = run(loop, 3.0, nobody)
+    assert fr.intro_alpha > 0.9, 'intro returns for the next visitor'
+    loop2 = L.CuriosityLoop(16)
+    fr = run(loop2, 6.0, still)
+    assert fr.intro_alpha < 0.1, 'a person standing still is not stuck on the intro'
+    loop3 = L.CuriosityLoop(16, {'intro': False})
+    assert run(loop3, 1, nobody).intro_alpha == 0.0
+
+
+def standing_moving(t):
+    return L.Inputs(person=True, body_x=0.3 * math.sin(t * 3), proximity=0.5, body_speed=0.6)
+
+
 def test_forget_returns_to_full_spiral():
     loop = L.CuriosityLoop(36)
     loop.cycle_t = 1.0                            # half-built spiral

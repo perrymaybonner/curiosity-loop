@@ -328,7 +328,8 @@ def _cfg():
             'dwell_time': p.Dwelltime.eval(), 'hover_dwell_time': p.Hoverdwelltime.eval(),
             'still_time': p.Stilltime.eval(), 'still_threshold': p.Stillthreshold.eval(),
             'one_hand_time': p.Onehandtime.eval(),
-            'show_cursors': bool(getattr(p, 'Handdots', None) and p.Handdots.eval())}
+            'show_cursors': bool(getattr(p, 'Handdots', None) and p.Handdots.eval()),
+            'intro': bool(p.Intro.eval()) if getattr(p, 'Intro', None) is not None else False}
 
 
 def _ops():
@@ -343,7 +344,8 @@ def _ops():
             'ghost_level': op('ghost_level'), 'ghost_switch': op('ghost_switch'),
             'debug_text': op('debug_text'), 'debug_switch': op('debug_switch'),
             'cap_title': op('cap_title'), 'cap_body': op('cap_body'),
-            'cap_body_over': op('cap_body_over'), 'cap_shade': op('cap_shade_level')}
+            'cap_body_over': op('cap_body_over'), 'cap_shade': op('cap_shade_level'),
+            'intro_level': op('intro_level')}
 
 
 def _load_captions(ops, core):
@@ -469,6 +471,8 @@ def apply(fr, ops):
         ops['ghost_switch'].par.index = 1 if vid is not None else 0
         ops['ghost_level'].par.opacity = BASE.par.Ghost.eval()
     _apply_caption(fr, ops)
+    if ops.get('intro_level') is not None:
+        ops['intro_level'].par.opacity = getattr(fr, 'intro_alpha', 0.0)
     dbg = bool(BASE.par.Debug.eval())
     if ops['debug_switch'] is not None:
         ops['debug_switch'].par.index = 1 if dbg else 0

@@ -38,6 +38,12 @@ DEFAULTS = {
     'circle_spin': 2.5,         # the ring turns this many times faster than the spiral
     'spiral_turns': 1.75,        # how many times the spiral winds around
     'show_cursors': False,      # soft dots under the hands during Reveal
+    # --- intro screen ---
+    'intro': True,              # black title screen until someone enters and moves
+    'intro_motion': 0.15,       # movement that counts as "starts moving"
+    'intro_max_wait': 4.0,      # s a still person waits before it fades anyway
+    'intro_fade_out': 1.5,      # s for the black to fade into the mirror
+    'intro_fade_in': 2.0,       # s for it to return once nobody is there
     'person_lost_time': 3.0,    # s without a person before going idle
     'forget_visitor_time': 8.0, # s idle before the mirror forgets you were here
     # --- reveal ---
@@ -159,6 +165,7 @@ class Frame:
         self.warp = 0.0
         self.caption_index = -1     # which artwork's caption to show (-1 = none)
         self.caption_alpha = 0.0
+        self.intro_alpha = 0.0      # black title screen over everything (1 = shown)
         self.state = IDLE
         self.info = {}
 
@@ -231,6 +238,9 @@ class CuriosityLoop:
         self.warp = 0.0
         self.trail = 0.0
         self.caption_alpha = 0.0
+        self.intro_on = True
+        self.intro_alpha = 1.0
+        self.person_t = 0.0
         self.springs = [{k: _Spring() for k in ('x', 'y', 'z', 'rot', 'scale', 'alpha', 'bright')}
                         for _ in range(self.n)]
         for i, sp in enumerate(self.springs):
@@ -381,6 +391,7 @@ class CuriosityLoop:
 
         # --- presence bookkeeping
         self.no_person_t = 0.0 if person else self.no_person_t + dt
+        self.person_t = self.person_t + dt if person else 0.0
         if person and not self.had_person and self.state in (IDLE, AWARENESS, ORBIT):
             self.enter_kick = 0.18   # a tiny "breath" when someone arrives
         self.had_person = person
@@ -606,6 +617,19 @@ class CuriosityLoop:
             co.size = max(0.01, cs['size'].step(size, dt, *FOLLOW))
             co.alpha = clamp(cs['alpha'].step(alpha, dt, *SLOW), 0.0, 1.0)
             fr.cursors.append(co)
+
+        # intro: shown until someone is here AND moving (or has stood there a while);
+        # it comes back once the mirror has gone idle, ready for the next visitor
+        if not self.cfg['intro']:
+            self.intro_on = False
+        elif s == IDLE:
+            self.intro_on = True
+        elif self.intro_on and self.person_t > 0.3 and (
+                self.motion > self.cfg['intro_motion'] or self.person_t > self.cfg['intro_max_wait']):
+            self.intro_on = False
+        tau = (self.cfg['intro_fade_in'] if self.intro_on else self.cfg['intro_fade_out']) / 3.0
+        self.intro_alpha = smooth(self.intro_alpha, 1.0 if self.intro_on else 0.0, dt, tau)
+        fr.intro_alpha = self.intro_alpha if self.cfg['intro'] else 0.0
 
         # caption: fades in once the artwork has mostly arrived, out as soon as it lets go
         showing = (s == DISTORT) or (s == FOCUS and self.state_t > self.cfg['focus_time'] * 0.6)
