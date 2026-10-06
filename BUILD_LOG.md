@@ -107,3 +107,7 @@ Format per entry: what I tried · what broke · what I asked Claude · what fina
 - **Built:** a layer above everything else (`intro_bg`, `intro_title` in Baskerville, `intro_subtitle` in Avenir), faded by the loop. It shows while the mirror is idle and fades out over ~1.5 s once a person is present and moving (motion > 0.15), or after they've stood there 4 s, so a still visitor isn't stuck. It fades back in ~2 s after the mirror goes idle, ready for the next visitor. The title, subtitle and on/off switch are on the new **Intro** page.
 - **Checked:** `test_intro_screen` covers showing while nobody is there, staying while someone is still, fading on movement, returning for the next visitor, the still-person fallback, and turning it off. All 12 tests pass. Live: the intro screen renders, and the fade into the mirror was caught midway.
 - **Tweak:** Avenir Next rendered as semibold, so the subtitle uses Avenir (lighter) with more space under the title.
+
+## 2026-10-06 - The Spiral, saved and published
+- Saved as `curiosity_loop_v3_the_spiral.toe` with a **Curiosity Loop - The Spiral** shortcut on the Desktop, and tagged `v3-the-spiral` in git.
+- Published to GitHub as a public repo (an assignment requirement). Before publishing I checked that no personal photos or `.toe` files had ever been committed; `photos/` and `photos_originals/` stay git-ignored. The artwork images in `artworks/` and `exhibition/` are public domain / CC0 and credited in their metadata READMEs.
