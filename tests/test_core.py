@@ -158,6 +158,15 @@ def test_selection_holds_then_returns_with_caption():
     assert fr.caption_alpha < 0.05, 'caption gone once it lets go'
 
 
+def test_caption_formats():
+    t, b = L.caption_for({'stage': 'birth', 'title': 'Morning', 'date': '1803-5',
+                          'artist': 'Philipp Otto Runge', 'description': 'A print.', 'museum': 'CMA'})
+    assert t == 'Morning' and b == '1803-5\nPhilipp Otto Runge\n\nA print.', b
+    t, b = L.caption_for({'title': 'Spiral', 'culture': 'Etruscan', 'date': 'BCE', 'medium': 'Silver',
+                          'museum': 'The Met', 'objectNumber': '95.1'})
+    assert 'The Met' in b and 'Silver' in b, 'older records keep the museum caption'
+
+
 def test_forget_returns_to_full_spiral():
     loop = L.CuriosityLoop(36)
     loop.cycle_t = 1.0                            # half-built spiral

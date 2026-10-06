@@ -91,6 +91,26 @@ Turn on **Input → Debug Overlay** to print the current state on screen.
 
 **Assignment requirement: 3 minutes unattended.** Errors in `loop_td` are caught, printed at most once every 5 s, and the show keeps running. Test it: start it, walk away for 3 minutes, and check the Textport.
 
+## The exhibition: life, death, transformation, return
+
+The current piece (`exhibition/`) treats the spiral as a continuous movement through states of being.
+It opens at the centre with **Birth** (the Kongo cosmogram, Hilma af Klint's *Primordial Chaos* and
+*Childhood*, creation and seed imagery), widens through **Growth** (*Youth* and *Adulthood*, mother and
+child, metamorphosis, a nautilus), erodes through **Death** (*Old Age*, ruins, sand, burial, an
+emptied nkisi, the earth goddess Bhu: public-domain echoes of Robert Smithson and Ana Mendieta),
+and turns into **Rebirth** (cicada, scarab, *The Swan*, ancestors, the *Altarpiece*). It ends on the
+same Kongo crucifix it began with, whose incised x references the dikenga dia Kongo, so the
+viewer realizes the exhibition has been moving in a circle.
+
+- 36 places in the spiral (35 works) from the Cleveland Museum of Art (CC0), The Met (public domain)
+  and Wikimedia Commons (public-domain af Klint scans). See `exhibition/metadata/README.md`.
+- Selecting a work shows its **title, date, artist and a short description**. Each description is
+  tagged as museum text, abridged museum text, or written for this exhibition.
+- Edit the selection or the descriptions in `exhibition/curation.json`, then run
+  `python3 scripts/build_exhibition.py` and the build line again.
+- **Photo Folder** switches sets: `exhibition/images` (current), `artworks/images` (the 40 spiral
+  artworks, tagged `v2-artworks` in git), or `photos` (my own photos).
+
 ## The artworks
 
 The piece shows 40 public-domain / CC0 artworks about spirals, vortexes, coils and circular motion,

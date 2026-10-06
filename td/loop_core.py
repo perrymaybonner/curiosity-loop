@@ -93,8 +93,8 @@ def caption_for(record):
     """(title, body) for a museum record, using the museum's own wording.
 
     Only fields the museum provided are shown; nothing is filled in or reworded.
-    Lines: maker (or culture when there is no maker), date, culture (if a maker was
-    shown), medium, then museum and object number.
+    Exhibition records (with a 'stage'): date, artist, then the short description.
+    Older artwork records: maker (or culture), date, culture, medium, museum, object number.
     """
     if not record:
         return None, None
@@ -102,6 +102,13 @@ def caption_for(record):
     def f(key):
         v = record.get(key)
         return v.strip() if isinstance(v, str) and v.strip() else None
+
+    if record.get('stage'):
+        # exhibition records: title / date / artist / short description
+        body = [l for l in (f('date'), f('artist') or f('maker') or f('culture')) if l]
+        if f('description'):
+            body += ['', f('description')]
+        return f('title'), '\n'.join(body)
 
     maker, culture = f('maker'), f('culture')
     lines = [maker or culture, f('date')]
